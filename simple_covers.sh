@@ -22,6 +22,9 @@ function cleanup {
 	if [ -f "$TMPDIR/FRONT_COVER.jpeg" ]; then
 		rm "$TMPDIR/FRONT_COVER.jpeg"
 	fi
+	if [ -f "$TMPDIR/FRONT_COVER.png" ]; then
+		rm "$TMPDIR/FRONT_COVER.png"
+	fi
 	if [ -f "$TMPDIR/cover.jpg" ]; then
 		rm "$TMPDIR/cover.jpg"
 	fi
@@ -45,10 +48,17 @@ function get_album_art {
 	if [ ! -f "$coverart" ]; then
 		echo "### Cover art not found at $coverart"
 		eyeD3 --write-images=$TMPDIR "$SONGFILE"
+		if [ -f "$TMPDIR/FRONT_COVER.png" ]; then
+			echo "converting PNG into JPG"
+			convert "$TMPDIR/FRONT_COVER.png" "$TMPDIR/FRONT_COVER.jpeg"
+		fi
 		if [ -f "$TMPDIR/FRONT_COVER.jpeg" ]; then
 			echo "### Cover art retrieved from MP3 ID3 tags!"
 			echo "### Cover art being copied to music directory!"
 			cp "$TMPDIR/FRONT_COVER.jpeg" "$coverart"
+			if [ ! -f "$coverart" ]; then
+				cp "$TMPDIR/FRONT_COVER.jpg" "$SONGDIR/cover.jpg"
+			fi
 		else
 			echo "### Cover art not found in ID3 tags!"
 			echo "### Cover art being found on the interwebs!"
@@ -64,7 +74,20 @@ function get_album_art {
 
 if [ "$1" = "--standalone" ]; then
 	# we need to walk the music directory and find art.
-	echo "not implemented yet"
+	# http://stackoverflow.com/questions/12873834/list-directories-not-containing-certain-files
+	# http://stackoverflow.com/questions/5374239/tab-separated-values-in-awk
+	
+	find . -iname "*.mp3" | sed -e 's!/[^/]*$!!' -e 's!^\./!!' | sort -u | while read dir
+	do
+		SONGDIR="$PWD/$dir"
+		if [ ! -f "$SONGDIR/cover.jpg" ]; then	
+			SONGFILE=$(find "$SONGDIR" -iname "*.mp3" | head -1)
+			ARTIST=$(eyeD3 "$SONGFILE" | grep "artist" | awk -F ': ' '{print $3}')
+			ALBUM=$(eyeD3 "$SONGFILE" | grep "album" | awk -F ': ' '{print $2}' | awk 'BEGIN {FS="\t"}; {print $1}')
+			echo "Finding cover art for $ALBUM by $ARTIST"
+			get_album_art
+		fi
+	done
 else
 
 	(echo qman-startup; mpc idleloop) \
