@@ -5,12 +5,6 @@
 # requires eyeD3 http://eyed3.nicfit.net/ to extract image from mp3
 # Snagged mpc-based looping from http://www.hackerposse.com/~rozzin/mpdjay
 
-# uses xseticon, wmctrl, and transset to make its little terminal window all pretty.  Feel free to delete these lines.
-
-	snark=$(echo $WINDOWID)
-	xseticon -id $snark ~/.icons/Faenza-Like/iKamasutra.png
-	wmctrl -i -r "$snark" -T "Album Art Downloader" 
-	transset 0.7 -i "$snark"
 
 ########### Configuration
 # TODO:  Sane defaults and autodetect
@@ -38,23 +32,35 @@ function get_album_art {
 	#coverart1=$MUSICDIR/"$ALBUM"/"$ARTIST"
 	# trimming characters that jack it up...
 	coverart1=$(echo "$coverart1"| sed s/[:.]//g)
-	# getting lowercase duh!
+	# getting lowercase and removing final slash
 	coverart="${coverart1,,}"
-	coverart=$(echo "$coverart/cover.jpg")
+	coverart="${coverart%/}"
 
-	if [ ! -f "$coverart" ]; then
-		echo "### Cover art not found at $coverart"
-		eyeD3 --write-images=$TMPDIR "$SONGFILE"
+	if [ ! -f "$coverart/cover.jpg" ]; then
+		echo "### Cover art not found in $coverart"
+		#eyeD3 really clutters up the screen a lot.
+		eyeD3 --write-images=$TMPDIR "$SONGFILE" 1> /dev/null
 		if [ -f "$TMPDIR/FRONT_COVER.png" ]; then
 			echo "converting PNG into JPG"
 			convert "$TMPDIR/FRONT_COVER.png" "$TMPDIR/FRONT_COVER.jpeg"
 		fi
+		# Catching when it's sometimes stored as "Other" tag instead of FRONT_COVER
+		# but only when FRONT_COVER doesn't exist.
+		if [ ! -f "$TMPDIR/FRONT_COVER.jpeg" ]; then
+			if [ -f "$TMPDIR/OTHER.png" ]; then
+				echo "converting PNG into JPG"
+				convert "$TMPDIR/OTHER.png" "$TMPDIR/OTHER.jpeg"
+			fi
+			if [ -f "$TMPDIR/OTHER.jpeg" ]; then
+				cp "$TMPDIR/OTHER.jpeg" "$TMPDIR/FRONT_COVER.jpeg"
+			fi
+		fi	
 		if [ -f "$TMPDIR/FRONT_COVER.jpeg" ]; then
 			echo "### Cover art retrieved from MP3 ID3 tags!"
 			echo "### Cover art being copied to music directory!"
-			cp "$TMPDIR/FRONT_COVER.jpeg" "$coverart"
-			if [ ! -f "$coverart" ]; then
-				cp "$TMPDIR/FRONT_COVER.jpg" "$SONGDIR/cover.jpg"
+			cp "$TMPDIR/FRONT_COVER.jpeg" "$coverart/cover.jpg"
+			if [ ! -f "$coverart/cover.jpg" ]; then
+				cp "$TMPDIR/FRONT_COVER.jpeg" "$SONGDIR/cover.jpg"
 			fi
 		else
 			echo "### Cover art not found in ID3 tags!"
@@ -79,13 +85,21 @@ if [ "$1" = "--standalone" ]; then
 		SONGDIR="$PWD/$dir"
 		if [ ! -f "$SONGDIR/cover.jpg" ]; then	
 			SONGFILE=$(find "$SONGDIR" -iname "*.mp3" | head -1)
-			ARTIST=$(eyeD3 "$SONGFILE" | grep "artist" | awk -F ': ' '{print $3}')
-			ALBUM=$(eyeD3 "$SONGFILE" | grep "album" | awk -F ': ' '{print $2}' | awk 'BEGIN {FS="\t"}; {print $1}')
+			ARTIST=`eyeD3 "$SONGFILE" | grep "artist" | awk -F ': ' '{print $3}'`
+			ALBUM=`eyeD3 "$SONGFILE" | grep "album" | awk -F ': ' '{print $2}' | awk 'BEGIN {FS="\t"}; {print $1}'`
 			echo "Finding cover art for $ALBUM by $ARTIST"
 			get_album_art
 		fi
 	done
 else
+	# uses xseticon, wmctrl, and transset to make its little terminal 
+	# window all pretty.  Feel free to delete these lines.
+
+	snark=$(echo $WINDOWID)
+	xseticon -id $snark ~/.icons/Faenza-Like/iKamasutra.png
+	wmctrl -i -r "$snark" -T "Album Art Downloader" 
+	transset 0.7 -i "$snark"
+
 
 	(echo qman-startup; mpc idleloop) \
 	| while read event
