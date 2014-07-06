@@ -19,15 +19,12 @@ MUSICDIR=~/music
 TMPDIR=~/tmp
 
 function cleanup {
-	if [ -f "$TMPDIR/FRONT_COVER.jpeg" ]; then
-		rm "$TMPDIR/FRONT_COVER.jpeg"
-	fi
-	if [ -f "$TMPDIR/FRONT_COVER.png" ]; then
-		rm "$TMPDIR/FRONT_COVER.png"
-	fi
-	if [ -f "$TMPDIR/cover.jpg" ]; then
-		rm "$TMPDIR/cover.jpg"
-	fi
+	# I use trash-cli here instead of rm
+	# https://github.com/andreafrancia/trash-cli
+	# Obviously, substitute rm -f for trash if you want to use it.
+	find "$TMPDIR/" -iname "OTHER*"  -exec trash {} \;
+	find "$TMPDIR/" -iname "FRONT_COVER*"  -exec trash {} \;
+	find "$TMPDIR/" -iname "cover*"  -exec trash {} \;	
 }
 
 function get_album_art {
