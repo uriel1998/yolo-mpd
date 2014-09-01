@@ -3,6 +3,9 @@ yolo-mpd
 
 Various MPD tweaks and tips and tools and scripts I've put together or found and tweaked.
 
+#mediakey.sh
+
+This script uses the MPRIS interface to control your media players.  Currently supported players include MPD, Pithos, Audacious, and Clementine
 
 #simple_covers
 
