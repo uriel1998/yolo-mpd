@@ -108,6 +108,10 @@ else
 		then
 			continue
 		fi
+		if [ "$event" = "update" ]
+		then
+			continue
+		fi
 		ARTIST=$(mpc --format %artist% | head -1)
 		ALBUM=$(mpc --format %album% | head -1)
 		SONGFILE=$(mpc --format %file% | head -1)
