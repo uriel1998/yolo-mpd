@@ -21,7 +21,9 @@ Dependencies:
 * [AA-lib](http://aa-project.sourceforge.net/aview/)
 * [libcaca](http://caca.zoy.org/wiki/libcaca)
 
+###AA-lib output
 ![AA-lib](aaview_output.png?raw=true "AA-lib output")
+###libcaca output
 ![LibCaca](libcaca_output.png?raw=true "libcaca output")
 
 #mediakey.sh
