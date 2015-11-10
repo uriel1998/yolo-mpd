@@ -11,6 +11,7 @@ Dependencies:
 * [pick](https://github.com/thoughtbot/pick)
 * [mpc](http://git.musicpd.org/cgit/master/mpc.git/)
 
+![output](out.gif?raw=true "What it looks like")
 
 #terminalcovers.sh
 
