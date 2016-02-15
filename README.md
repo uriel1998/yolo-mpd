@@ -5,7 +5,7 @@ Various MPD tweaks and tips and tools and scripts I've put together or found and
 
 #mpdcontrol.sh
 
-Select whether you want to choose a playlist, or by album, artist, or genre. Clears playlist, adds what you chose, starts playing.
+Select whether you want to choose a playlist, or by album, artist, or genre. Clears playlist, adds what you chose, starts playing. The SSH version is for exactly that, especially if you don't have *pick* on that machine.
 
 Dependencies: 
 * [pick](https://github.com/thoughtbot/pick)
