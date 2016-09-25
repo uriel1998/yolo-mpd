@@ -3,10 +3,22 @@ yolo-mpd
 
 Various MPD tweaks and tips and tools and scripts I've put together or found and tweaked.
 
+#bpmhelper.sh
+
+Uses the bpm-tools package, which analyzes BPM quite nicely on linux, but then writes tags that overwrite album and genre tags. So this wrapper uses eyeD3 to determine if a BPM is already written, then analyzes the file, then uses eyeD3 to do the writing to the file. I already have eyeD3 for the album art script (below); a solution that does not rely on that dependency can be found at [bpmwrap](https://github.com/meridius/bpmwrap).
+
+Accepts only one command line argument (optional) to not overwrite existing BPM data. Use --save-existing to save existing data.  
+Analyzes the current directory *and all subdirectories*.
+
+Dependencies
+* [bpm-tools](http://www.pogo.org.uk/~mark/bpm-tools/)
+* [eye3D](http://eyed3.nicfit.net/)
 
 #mp3gainhelper.sh
 
 Performs mp3gain analysis and writes to id3 tags. The MP3Gain utility apparently writes by default to APE tags, which aren't used by MPD. But apparently mp3gain has issues corrupting ID3 data if you write directly to ID3 tags, and will just crash and abort if it runs into an error instead of continuing onward.
+
+Accepts only one command line argument (optional) giving the directory to analyze. Otherwise analyzes the current directory *and all subdirectories*.
 
 Dependencies: 
 * [mp3gain](http://mp3gain.sourceforge.net/)
