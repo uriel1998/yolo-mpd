@@ -7,7 +7,12 @@ Various MPD tweaks and tips and tools and scripts I've put together or found and
 
 Uses the bpm-tools package, which analyzes BPM quite nicely on linux, but then writes tags that overwrite album and genre tags. So this wrapper uses eyeD3 to determine if a BPM is already written, then analyzes the file, then uses eyeD3 to do the writing to the file. I already have eyeD3 for the album art script (below); a solution that does not rely on that dependency can be found at [bpmwrap](https://github.com/meridius/bpmwrap).
 
-Accepts only one command line argument (optional) to not overwrite existing BPM data. Use --save-existing to save existing data.  
+Accepts two command line arguments (optional)
+
+Use --save-existing to save existing data.  
+Use --skip-existing to skip further analysis of those that have existing BPM
+Use --quiet to suppress output (eyeD3 may still output to the screen)
+
 Analyzes the current directory *and all subdirectories*.
 
 Dependencies
