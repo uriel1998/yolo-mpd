@@ -36,7 +36,7 @@ for f in $(find "$startdir" -name '*.mp3' );do
 	re='^[0-9]+$'
 	existingbpm=`eyeD3  "$f"  | grep BPM | awk -F ':' '{ print $2 }' | awk '{print $2}'`
 	sleep 1
-	if ! [[ $existingbpm =~ $re ]] ; then
+	if ! [[ $existingbpm =~ $re ]] && [[ "$existingbpm" != "" ]]; then
 		echo "Existing BPM jacked up!!" >&2
 	elif [ $SkipExisting = 0 ];then
 		sleep 1
