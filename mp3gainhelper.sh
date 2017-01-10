@@ -25,8 +25,8 @@ fi
 IFS=$'\n'
 
 for f in $(find "$startdir" -name '*.mp3' );do 
-	mp3gain -a "$f"
-	mp3gain -r "$f"
+	mp3gain -c -a "$f"
+	mp3gain -c -r "$f"
 done
 
 unset IFS
