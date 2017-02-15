@@ -69,6 +69,8 @@ function get_album_art {
 			glyrc cover --artist "$ARTIST" --album "$ALBUM" --formats jpeg --write "$coverart" --from "musicbrainz;lastfm;local;rhapsody;jamendo;discogs;coverartarchive"
 			# we are not writing from glyr to ID3 because sometimes it's just plain wrong.
 		fi
+	elif [ ! -f "$SONGDIR/folder.jpg" ]; then
+		cp "$SONGDIR/cover.jpg" "$SONGDIR/folder.jpg"
 	else
 		echo "### Cover art found in music directory."
 	fi
@@ -79,7 +81,7 @@ if [ "$1" = "--standalone" ]; then
 	# we need to walk the music directory and find art.
 	# http://stackoverflow.com/questions/12873834/list-directories-not-containing-certain-files
 	# http://stackoverflow.com/questions/5374239/tab-separated-values-in-awk
-	
+	echo "Please wait...."
 	find . -iname "*.mp3" | sed -e 's!/[^/]*$!!' -e 's!^\./!!' | sort -u | while read dir
 	do
 		SONGDIR="$PWD/$dir"
@@ -89,6 +91,8 @@ if [ "$1" = "--standalone" ]; then
 			ALBUM=`eyeD3 "$SONGFILE" | grep "album" | awk -F ': ' '{print $2}' | awk 'BEGIN {FS="\t"}; {print $1}'`
 			echo "Finding cover art for $ALBUM by $ARTIST"
 			get_album_art
+		elif [ ! -f "$SONGDIR/folder.jpg" ]; then
+				cp "$SONGDIR/cover.jpg" "$SONGDIR/folder.jpg"
 		fi
 	done
 else
