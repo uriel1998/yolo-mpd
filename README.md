@@ -5,7 +5,7 @@ Various MPD tweaks and tips and tools and scripts I've put together or found and
 
 # terminal_multiplexer
 
-Uses tmux, xterm, ncmpcpp, cava, and [terminal covers](https://github.com/uriel1998/yolo-mpd#terminalcoverssh) to provide a nice layout. Title set to screen by wmctrl.  No tmux.conf file needed.
+Uses tmux, xterm, ncmpcpp, cava, and [terminal covers](https://github.com/uriel1998/yolo-mpd#terminalcoverssh) to provide a nice layout. Title set to screen by wmctrl.  No tmux.conf file needed.  Inspired by [this reddit post](https://www.reddit.com/r/unixporn/comments/3q4y1m/openbox_music_now_with_tmux_and_album_art/).
 
 Dependencies: 
 * [mpc](http://git.musicpd.org/cgit/master/mpc.git/)  
@@ -19,7 +19,7 @@ One or more of the following:
 * [libcaca](http://caca.zoy.org/wiki/libcaca)
 * [img2text](https://github.com/hit9/img2txt)
 
-![AA-lib](aaview_layout.jpg?raw=true "AA-lib output")
+![AA-lib](aaview_layout.jpg)
 ![asciiart](asciiart_layout.jpg?raw=true "asciiart output")
 ![img2txt](img2txt_layout.jpg?raw=true "img2txt output")
 
