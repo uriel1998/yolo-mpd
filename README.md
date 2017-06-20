@@ -65,6 +65,7 @@ Dependencies:
 * [pick](https://github.com/thoughtbot/pick)
 * [mpc](http://git.musicpd.org/cgit/master/mpc.git/)
 
+![Imgur](http://i.imgur.com/mHZ2GQ4.gifv)
 ![output](out.gif?raw=true "What it looks like")
 
 # terminalcovers.sh
