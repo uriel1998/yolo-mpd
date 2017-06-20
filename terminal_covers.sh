@@ -70,7 +70,6 @@ function show_album_art {
 		killall aview
 		anytopnm "$COVERART" | aview -driver curses &	
 		snark=$(echo $WINDOWID)
-#xseticon -id $snark /home/steven/.icons/Moka/16x16/apps/lxmusic.png
 		wmctrl -i -r "$snark" -T "$DataString" 	
 	fi
 }

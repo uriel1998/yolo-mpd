@@ -1,19 +1,13 @@
 #!/bin/bash
 
-# icon from http://www.iconfinder.com/icondetails/17547/48/prompt_terminal_icon
-# xseticon from http://www.leonerd.org.uk/code/xseticon/
 # Solutions from
 # http://superuser.com/questions/363614/leave-xterm-open-after-task-is-complete
 # http://unix.stackexchange.com/questions/3197/how-to-identify-which-xterm-a-shell-or-process-is-running-in
-# http://unix.stackexchange.com/questions/16774/how-to-assign-an-icon-to-a-program-in-openbox
 
 
 snark=$(echo $WINDOWID)
-xseticon -id $snark /home/steven/.icons/Moka/16x16/apps/lxmusic.png
-wmctrl -i -r "$snark" -T "8 tracks - Orochi" 
-transset 0.7 -i "$snark"
-#nice orochi
-#
+wmctrl -i -r "$snark" -T "Our Tmux" 
+
 session="MPD"
 
 # set up tmux
