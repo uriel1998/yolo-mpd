@@ -23,7 +23,7 @@ function cleanup {
 
 function get_album_art {
 	cleanup
-	echo "### Finding cover for $ALBUM..."
+	echo "# Finding cover for $ALBUM..."
 
 	# existing file, from ID3 tag, from internet.  Always to cover.jpg
 	# always prefer cover art stored in music directory, then mp3
@@ -36,8 +36,21 @@ function get_album_art {
 	coverart="${coverart1,,}"
 	coverart="${coverart%/}"
 
-	if [ ! -f "$coverart/cover.jpg" ]; then
-		echo "### Cover art not found in $coverart"
+
+	# So many players use one or the other that I've started to just 
+	# maintain both. This happens silently in the background; the idleloop
+	# means that it'll be caught before the song's over.
+	if [ -f "$coverart/folder.jpg" ] || [ ! -f "$coverart/cover.jpg" ];then
+		cp "$coverart/folder.jpg" "$coverart/cover.jpg"
+	fi
+	
+	if [ ! -f "$coverart/folder.jpg" ] || [ -f "$coverart/cover.jpg" ];then
+		cp "$coverart/cover.jpg" "$coverart/folder.jpg" 
+	fi
+
+	# So if neither's been found...
+	if [ ! -f "$coverart/cover.jpg" ]; then	
+		echo "# Cover art not found in $coverart"
 		#eyeD3 really clutters up the screen a lot.
 		eyeD3 --write-images=$TMPDIR "$SONGFILE" 1> /dev/null
 		if [ -f "$TMPDIR/FRONT_COVER.png" ]; then
@@ -56,16 +69,16 @@ function get_album_art {
 			fi
 		fi	
 		if [ -f "$TMPDIR/FRONT_COVER.jpeg" ]; then
-			echo "### Cover art retrieved from MP3 ID3 tags!"
-			echo "### Cover art being copied to music directory!"
+			echo "# Cover art retrieved from MP3 ID3 tags!"
+			echo "# Cover art being copied to music directory!"
 			cp "$TMPDIR/FRONT_COVER.jpeg" "$coverart/cover.jpg"
 			if [ ! -f "$coverart/cover.jpg" ]; then
 				cp "$TMPDIR/FRONT_COVER.jpeg" "$SONGDIR/cover.jpg"
 			fi
 		else
-			echo "### Cover art not found in ID3 tags!"
-			echo "### Cover art being found on the interwebs!"
-			echo "### $coverart ###"
+			echo "# Cover art not found in ID3 tags!"
+			echo "# Cover art being found on the interwebs!"
+			echo "# $coverart ###"
 			#THIS IS BREAKING ON STRANGE ALBUM NAMES
 			glyrc cover --artist "$ARTIST" --album "$ALBUM" --formats jpeg --write "$coverart/cover.jpg" --from "musicbrainz;lastfm;local;rhapsody;jamendo;discogs;coverartarchive"
 			# we are not writing from glyr to ID3 because sometimes it's just plain wrong.
@@ -73,7 +86,7 @@ function get_album_art {
 	elif [ ! -f "$SONGDIR/folder.jpg" ]; then
 		cp "$SONGDIR/cover.jpg" "$SONGDIR/folder.jpg"
 	else
-		echo "### Cover art found in music directory."
+		echo "# Cover art found in music directory."
 	fi
 	# just in case there is STILL nothing, a last test.
 }
@@ -120,7 +133,7 @@ else
 		SONGFILE=$MUSICDIR/"$SONGFILE"
 		SONGDIR=$(dirname "$SONGFILE")
 		if [ -f "$SONGFILE" ]; then
-			echo "Getting info for $ARTIST and $ALBUM"
+			echo "# Getting info for $ARTIST and $ALBUM"
 			get_album_art
 		else
 			echo "We're getting wrong information for some reason."

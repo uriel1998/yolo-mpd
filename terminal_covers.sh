@@ -1,5 +1,6 @@
 #!/bin/bash
-
+# bc for calculation
+# curl for unsplash images
 # requires mpc to get song info
 # Snagged mpc-based looping from http://www.hackerposse.com/~rozzin/mpdjay
 
@@ -7,16 +8,19 @@
 ########### Configuration
 # TODO:  Sane defaults and autodetect
 MUSICDIR=~/music
+TMPDIR=~/tmp
 
-
+########### Render Options
+# aview
+# img2text https://github.com/hit9/img2txt
+# w3mimage - not put in here
+# asciiart
+# xseticon
+# wmctrl
 
 function get_album_art {
 
 	echo "### Finding cover for $ALBUM..."
-
-	# existing file, from ID3 tag, from internet.  Always to cover.jpg
-	# always prefer cover art stored in music directory, then mp3
-	# presumption is that it's easier to just read jpg in directory... and to delete if wrong
 	coverart1="$SONGDIR"
 	#coverart1=$MUSICDIR/"$ALBUM"/"$ARTIST"
 	# trimming characters that jack it up...
@@ -24,41 +28,60 @@ function get_album_art {
 	# getting lowercase and removing final slash
 	coverart="${coverart1,,}"
 	coverart="${coverart%/}"
-
-	if [ ! -f "$coverart/cover.jpg" ]; then
-		echo "### Cover art not found in $coverart"
+	if [ -f "$coverart/cover.jpg" ]; then
+		COVERART="$coverart/cover.jpg"
+	elif [ -f "$SONGDIR/folder.jpg" ]; then
+		COVERART="$coverart/folder.jpg"
 	else
-####### OMIT THIS NEXT LINE IF YOU DO NOT USE AVIEW
-####### aview doesn't have a render-and-done mode like img2txt, but it 
-####### looks hella better
-		killall aview
-		
-		echo "### Cover art found in music directory."
+		curl -s https://unsplash.it/512/512/?random -o $TMPDIR/unsplash.jpg
+		convert $TMPDIR/unsplash.jpg -blur 0x3 $TMPDIR/unsplash_blur.jpg
+		COVERART="$TMPDIR/unsplash_blur.jpg"
+	fi
+}
+
+function show_album_art {
+
+
+	if [ ! -f "$COVERART" ]; then
+		echo "### Something's horribly wrong"
+	else
+
+		clear
 		#in case not automatically listed
 		cols=$(tput cols)
 		lines=$(tput lines)
+		if [ "$cols" -gt "$lines" ]; then
+			gvalue="$cols"
+			lvalue="$lines"
+		else
+			gvalue="$lines"
+			lvalue="$cols"
+		fi
+		bvalue=$(echo "scale=4; $gvalue-3" | bc)
+		if [ "$bvalue" -gt 78 ];then
+			bvalue=78
+		fi
 
 ########SELECT WHICH VIEWER YOU WISH TO USE HERE
-		#img2txt -H $lines -f ansi "$coverart/cover.jpg"
-		anytopnm "$coverart/cover.jpg" | aview -driver curses &
+		#img2txt.py --ansi --targetAspect=0.5 --maxLen="$bvalue" "$COVERART"
+		
+		#asciiart -c -w "$bvalue" "$COVERART" 
+
+		killall aview
+		anytopnm "$COVERART" | aview -driver curses &	
+		snark=$(echo $WINDOWID)
+#xseticon -id $snark /home/steven/.icons/Moka/16x16/apps/lxmusic.png
+		wmctrl -i -r "$snark" -T "$DataString" 	
 	fi
-	# just in case there is STILL nothing, a last test.
 }
 
 
 # Here's the main loop
 
-	(echo qman-startup; mpc idleloop) \
+	(echo qman-startup; mpc idleloop player) \
 	| while read event
 	do
-		if [ "$event" = "mixer" ]
-		then
-			continue
-		fi
-		if [ "$event" = "update" ]
-		then
-			continue
-		fi
+		DataString=$(mpc --format "[[%artist% - ]%title%[ - %album%]"| head -1)
 		ARTIST=$(mpc --format %artist% | head -1)
 		ALBUM=$(mpc --format %album% | head -1)
 		SONGFILE=$(mpc --format %file% | head -1)
@@ -67,6 +90,7 @@ function get_album_art {
 		if [ -f "$SONGFILE" ]; then
 			echo "Getting info for $ARTIST and $ALBUM"
 			get_album_art
+			show_album_art
 		else
 			echo "We're getting wrong information for some reason."
 		fi
