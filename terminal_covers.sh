@@ -13,9 +13,8 @@ TMPDIR=~/tmp
 ########### Render Options
 # aview
 # img2text https://github.com/hit9/img2txt
-# w3mimage - not put in here
+# w3mimage - TODO
 # asciiart
-# xseticon
 # wmctrl
 
 function get_album_art {
@@ -63,12 +62,12 @@ function show_album_art {
 		fi
 
 ########SELECT WHICH VIEWER YOU WISH TO USE HERE
-		#img2txt.py --ansi --targetAspect=0.5 --maxLen="$bvalue" "$COVERART"
+		img2txt.py --ansi --targetAspect=0.5 --maxLen="$bvalue" "$COVERART"
 		
 		#asciiart -c -w "$bvalue" "$COVERART" 
 
-		killall aview
-		anytopnm "$COVERART" | aview -driver curses &	
+		#killall aview;anytopnm "$COVERART" | aview -driver curses &	
+
 		snark=$(echo $WINDOWID)
 		wmctrl -i -r "$snark" -T "$DataString" 	
 	fi

@@ -3,6 +3,27 @@ yolo-mpd
 
 Various MPD tweaks and tips and tools and scripts I've put together or found and tweaked.
 
+# terminal_multiplexer
+
+Uses tmux, xterm, ncmpcpp, cava, and [terminal covers](https://github.com/uriel1998/yolo-mpd#terminalcoverssh) to provide a nice layout. Title set to screen by wmctrl.  No tmux.conf file needed.
+
+Dependencies: 
+* [mpc](http://git.musicpd.org/cgit/master/mpc.git/)  
+* [tmux](https://tmux.github.io/)  
+* [ncmpcpp](https://github.com/arybczak/ncmpcpp)  
+* [wmctrl](https://linux.die.net/man/1/wmctrl)  
+
+One or more of the following:  
+
+* [AA-lib](http://aa-project.sourceforge.net/aview/)
+* [libcaca](http://caca.zoy.org/wiki/libcaca)
+* [img2text](https://github.com/hit9/img2txt)
+
+![AA-lib](aaview_layout.jpg?raw=true "AA-lib output")
+![asciiart](asciiart_layout.jpg?raw=true "asciiart output")
+![img2txt](img2txt_layout.jpg?raw=true "img2txt output")
+
+
 # bpmhelper.sh
 
 Uses the bpm-tools package, which analyzes BPM quite nicely on linux, but then writes tags that overwrite album and genre tags. So this wrapper uses eyeD3 to determine if a BPM is already written, then analyzes the file, then uses eyeD3 to do the writing to the file. I already have eyeD3 for the album art script (below); a solution that does not rely on that dependency can be found at [bpmwrap](https://github.com/meridius/bpmwrap).
@@ -48,12 +69,16 @@ Dependencies:
 
 # terminalcovers.sh
 
-A kind of hack-y way to show terminal covers in the terminal.  Uses either AA-lib or libcaca.  AA-lib looks MUCH better, but doesn't automatically exit, so requires killall (yeah, that sucks).
+A kind of hack-y way to show terminal covers in the terminal.  Uses either AA-lib or libcaca.  AA-lib looks MUCH better, but doesn't automatically exit, so requires killall (yeah, that sucks).  You will need to *edit* the script to choose a different renderer.
 
 Dependencies: 
 * [mpc](http://git.musicpd.org/cgit/master/mpc.git/)
+
+One or more of the following:  
+
 * [AA-lib](http://aa-project.sourceforge.net/aview/)
 * [libcaca](http://caca.zoy.org/wiki/libcaca)
+* [img2text](https://github.com/hit9/img2txt)
 
 ###AA-lib output
 ![AA-lib](aaview_output.png?raw=true "AA-lib output")
