@@ -80,9 +80,9 @@ One or more of the following:
 * [libcaca](http://caca.zoy.org/wiki/libcaca)
 * [img2text](https://github.com/hit9/img2txt)
 
-###AA-lib output
+### AA-lib output
 ![AA-lib](aaview_output.png?raw=true "AA-lib output")
-###libcaca output
+### libcaca output
 ![LibCaca](libcaca_output.png?raw=true "libcaca output")
 
 # mediakey.sh
