@@ -36,7 +36,6 @@ function get_album_art {
 	coverart="${coverart1,,}"
 	coverart="${coverart%/}"
 
-
 	# So many players use one or the other that I've started to just 
 	# maintain both. This happens silently in the background; the idleloop
 	# means that it'll be caught before the song's over.
@@ -52,6 +51,10 @@ function get_album_art {
 	if [ ! -f "$coverart/cover.jpg" ]; then	
 		echo "# Cover art not found in $coverart"
 		#eyeD3 really clutters up the screen a lot.
+        
+        echo "$SONGFILE"
+        sleep 2
+        
 		eyeD3 --write-images=$TMPDIR "$SONGFILE" 1> /dev/null
 		if [ -f "$TMPDIR/FRONT_COVER.png" ]; then
 			echo "converting PNG into JPG"
@@ -68,6 +71,9 @@ function get_album_art {
 				cp "$TMPDIR/OTHER.jpeg" "$TMPDIR/FRONT_COVER.jpeg"
 			fi
 		fi	
+   		if [ -f "$TMPDIR/FRONT_COVER.jpg" ]; then
+            cp "$TMPDIR/FRONT_COVER.jpg" "$TMPDIR/FRONT_COVER.jpeg"
+        fi
 		if [ -f "$TMPDIR/FRONT_COVER.jpeg" ]; then
 			echo "# Cover art retrieved from MP3 ID3 tags!"
 			echo "# Cover art being copied to music directory!"
@@ -80,7 +86,7 @@ function get_album_art {
 			echo "# Cover art being found on the interwebs!"
 			echo "# $coverart ###"
 			#THIS IS BREAKING ON STRANGE ALBUM NAMES
-			glyrc cover --artist "$ARTIST" --album "$ALBUM" --formats jpeg --write "$coverart/cover.jpg" --from "musicbrainz;lastfm;local;rhapsody;jamendo;discogs;coverartarchive"
+			glyrc cover --artist "$ARTIST" --album "$ALBUM" --formats jpeg --write "$coverart/cover.jpg" --from "musicbrainz;lastfm;local;discogs;coverartarchive"
 			# we are not writing from glyr to ID3 because sometimes it's just plain wrong.
 		fi
 	elif [ ! -f "$SONGDIR/folder.jpg" ]; then
@@ -99,11 +105,10 @@ if [ "$1" = "--standalone" ]; then
 	find . -iname "*.mp3" | sed -e 's!/[^/]*$!!' -e 's!^\./!!' | sort -u | while read dir
 	do
 		SONGDIR="$PWD/$dir"
-		echo "$SONGDIR"
 		if [ ! -f "$SONGDIR/cover.jpg" ]; then	
 			SONGFILE=$(find "$SONGDIR" -iname "*.mp3" | head -1)
-			ARTIST=`eyeD3 "$SONGFILE" | grep "artist" | awk -F ': ' '{print $3}'`
-			ALBUM=`eyeD3 "$SONGFILE" | grep "album" | awk -F ': ' '{print $2}' | awk 'BEGIN {FS="\t"}; {print $1}'`
+			ARTIST=`eyeD3 "$SONGFILE" | grep "artist" | grep -v "album" | grep -v "UserTextFrame" | awk -F ': ' '{print $2}' | sed -e 's/[[:space:]]*$//' | tr -d '\n'`
+			ALBUM=`eyeD3 "$SONGFILE" | grep "album" | grep -v "artist" | grep -v "UserTextFrame" | awk -F ': ' '{print $2}' | awk 'BEGIN {FS="\t"}; {print $1}' | sed -e 's/[[:space:]]*$//' | tr -d '\n'`
 			echo "Finding cover art for $ALBUM by $ARTIST"
 			get_album_art
 		elif [ ! -f "$SONGDIR/folder.jpg" ]; then

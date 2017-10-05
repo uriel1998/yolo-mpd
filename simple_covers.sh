@@ -54,6 +54,9 @@ function get_album_art {
 			if [ -f "$TMPDIR/OTHER.jpeg" ]; then
 				cp "$TMPDIR/OTHER.jpeg" "$TMPDIR/FRONT_COVER.jpeg"
 			fi
+            if [ -f "$TMPDIR/FRONT_COVER.jpg" ]; then
+                cp "$TMPDIR/FRONT_COVER.jpg" "$TMPDIR/FRONT_COVER.jpeg"
+            fi            
 		fi	
 		if [ -f "$TMPDIR/FRONT_COVER.jpeg" ]; then
 			echo "### Cover art retrieved from MP3 ID3 tags!"
@@ -66,7 +69,7 @@ function get_album_art {
 			echo "### Cover art not found in ID3 tags!"
 			echo "### Cover art being found on the interwebs!"
 			#THIS IS BREAKING ON STRANGE ALBUM NAMES
-			glyrc cover --artist "$ARTIST" --album "$ALBUM" --formats jpeg --write "$coverart" --from "musicbrainz;lastfm;local;rhapsody;jamendo;discogs;coverartarchive"
+			glyrc cover --artist "$ARTIST" --album "$ALBUM" --formats jpeg --write "$coverart/folder.jpg" --from "musicbrainz;lastfm;local;rhapsody;jamendo;discogs;coverartarchive"
 			# we are not writing from glyr to ID3 because sometimes it's just plain wrong.
 		fi
 	elif [ ! -f "$SONGDIR/folder.jpg" ]; then
@@ -87,8 +90,8 @@ if [ "$1" = "--standalone" ]; then
 		SONGDIR="$PWD/$dir"
 		if [ ! -f "$SONGDIR/cover.jpg" ]; then	
 			SONGFILE=$(find "$SONGDIR" -iname "*.mp3" | head -1)
-			ARTIST=`eyeD3 "$SONGFILE" | grep "artist" | awk -F ': ' '{print $3}'`
-			ALBUM=`eyeD3 "$SONGFILE" | grep "album" | awk -F ': ' '{print $2}' | awk 'BEGIN {FS="\t"}; {print $1}'`
+			ARTIST=`eyeD3 "$SONGFILE" | grep "artist" | grep -v "album" | awk -F ': ' '{print $2}' | sed -e 's/[[:space:]]*$//' | tr -d '\n'`
+			ALBUM=`eyeD3 "$SONGFILE" | grep "album" | grep -v "artist" | awk -F ': ' '{print $2}' | awk 'BEGIN {FS="\t"}; {print $1}' | sed -e 's/[[:space:]]*$//' | tr -d '\n'`
 			echo "Finding cover art for $ALBUM by $ARTIST"
 			get_album_art
 		elif [ ! -f "$SONGDIR/folder.jpg" ]; then
