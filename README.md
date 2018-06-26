@@ -3,6 +3,13 @@ yolo-mpd
 
 Various MPD tweaks and tips and tools and scripts I've put together or found and tweaked.
 
+# mashup_fixer
+
+Dependencies: 
+* [eye3D](http://eyed3.nicfit.net/)
+
+Finds MP3 files that have song titles like "Scratches All Down My Back (Buckcherry vs.Toto)" and moves the artists that are in the parentheses or brackets to the "Album Artist" field. Searches recursively from the directory you run it in, and stores a CSV of changes made in your $HOME directory. Use --dryrun as an option first if you like.
+
 # terminal_multiplexer
 
 Uses tmux, xterm, ncmpcpp, cava, and [terminal covers](https://github.com/uriel1998/yolo-mpd#terminalcoverssh) to provide a nice layout. Title set to screen by wmctrl.  No tmux.conf file needed.  Inspired by [this reddit post](https://www.reddit.com/r/unixporn/comments/3q4y1m/openbox_music_now_with_tmux_and_album_art/).
