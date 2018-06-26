@@ -96,11 +96,9 @@ One or more of the following:
 
 This script uses the MPRIS interface to control your media players.  Currently supported players include MPD, Pithos, Audacious, and Clementine
 
-# simple_covers
+# ffixer_covers
 
-fetch covers from files and the interwebs.  Can now not only find the current playing song from MPD, but can walk a directory tree.
-
-The albumdir variant works better if you have your library simply divided by albums.
+This supercedes the simple_covers scripts. This just walks recursively the directory it starts from and writes cover.jpg and folder.jpg from the embedded art in the MP3s, or tries to find it from the interwebs. The older simple_covers scripts remain as a learning exercise.
 
 Dependencies:
 
