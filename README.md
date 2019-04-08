@@ -1,14 +1,79 @@
 yolo-mpd
 ========
 
-Various MPD tweaks and tips and tools and scripts I've put together or found and tweaked.
+Various MP3 and MPD tweaks, tips, tools, and scripts I've put together 
+or found and tweaked.
 
-# mashup_fixer
+## Contents
+ 1. [ffixer](ffixer)
+ 2. [ffixer-covers](ffixer-covers)
+ 3. [mpdcontrol.sh](mpdcontrol.sh)
+ 4. [terminal-multiplexer](terminal-multiplexer)
+ 5. [bpmhelper](bpmhelper)
+ 6. [mp3gainhelper](mp3gainhelper)
+ 7. [webserver.covers.sh](webserver.covers.sh)
+ 8. [terminalcovers.sh](terminalcovers.sh)
+ 9. [mediakey.sh](mediakey.sh)
+
+
+# ffixer
 
 Dependencies: 
-* [eye3D](http://eyed3.nicfit.net/)
+ * [eye3D](http://eyed3.nicfit.net/)
+ * `grep` command-line tool. `grep` can be found in the `grep` package on major Linux distributions.
+ * `sed` command-line tool. `sed` can be found in the `sed` package on major Linux distributions.
 
-Finds MP3 files that have song titles like "Scratches All Down My Back (Buckcherry vs.Toto)" and moves the artists that are in the parentheses or brackets to the "Album Artist" field. Searches recursively from the directory you run it in, and stores a CSV of changes made in your $HOME directory. Use --dryrun as an option first if you like.
+This utility does a few things automatically that I like to keep my 
+collection in order.  
+
+First, it finds MP3 files that have song titles 
+like "Scratches All Down My Back (Buckcherry vs.Toto)" and moves the 
+artists that are in the parentheses or brackets to the "Album Artist" 
+field. Searches recursively from the directory you run it in, and 
+stores a CSV of changes made in your $HOME directory. Use --dryrun as 
+an option first if you like.
+
+Second, it fills in the album artist and composer fields if they are 
+empty, preferentially using the artist tag. I like this because different 
+music players sort "artists" using different fields.
+
+Third, it standardizes all the "date" fields (release date, original 
+release date, and recording date) to YYYY *only* and fills in any 
+empty fields.
+
+Finally, it does all this while preserving the original file 
+modification time so that your collection isn't a flying mess of "new" 
+tracks.
+
+# ffixer_covers
+
+This script walks recursively from the directory it starts from and 
+ensures there are *both* `cover.jpg` and `folder.jpg` files. If none 
+exists in the directory, it attempts to extract them from the ID3 tags. 
+
+It will also embed found cover art into the ID3 tags if none exists, and 
+will attempt (if not found in any of the above) to find a cover on the 
+interwebs. 
+
+Dependencies:
+
+* [glyr](https://github.com/sahib/glyr)
+* [eye3D](http://eyed3.nicfit.net/)
+* [mpc](http://git.musicpd.org/cgit/master/mpc.git/)
+
+# mpdcontrol.sh
+
+Select whether you want to choose a playlist, or by album, artist, or 
+genre. Clears playlist, adds what you chose, starts playing. The SSH 
+version is for exactly that, especially if you don't have `pick` on 
+that machine.
+
+Dependencies: 
+* [pick](https://github.com/thoughtbot/pick)
+* [mpc](http://git.musicpd.org/cgit/master/mpc.git/)
+
+![output](out.gif?raw=true "What it looks like")
+
 
 # terminal_multiplexer
 
@@ -33,7 +98,13 @@ One or more of the following:
 
 # bpmhelper.sh
 
-Uses the bpm-tools package, which analyzes BPM quite nicely on linux, but then writes tags that overwrite album and genre tags. So this wrapper uses eyeD3 to determine if a BPM is already written, then analyzes the file, then uses eyeD3 to do the writing to the file. I already have eyeD3 for the album art script (below); a solution that does not rely on that dependency can be found at [bpmwrap](https://github.com/meridius/bpmwrap).
+Uses the bpm-tools package, which analyzes BPM quite nicely on linux, 
+but then writes tags that overwrite album and genre tags. So this 
+wrapper uses eyeD3 to determine if a BPM is already written, then 
+analyzes the file, then uses eyeD3 to do the writing to the file. 
+I already have eyeD3 for the album art script; a solution 
+that does not rely on that dependency can be found 
+at [bpmwrap](https://github.com/meridius/bpmwrap).
 
 Accepts two command line arguments (optional)
 
@@ -49,9 +120,15 @@ Dependencies
 
 # mp3gainhelper.sh
 
-Performs mp3gain analysis and writes to id3 tags. The MP3Gain utility apparently writes by default to APE tags, which aren't used by MPD. But apparently mp3gain has issues corrupting ID3 data if you write directly to ID3 tags, and will just crash and abort if it runs into an error instead of continuing onward.
+Performs mp3gain analysis and writes to id3 tags. The MP3Gain utility 
+apparently writes by default to APE tags, which aren't used by MPD. 
+But apparently mp3gain has issues corrupting ID3 data if you write 
+directly to ID3 tags, and will just crash and abort if it runs into an 
+error instead of continuing onward.
 
-Accepts only one command line argument (optional) giving the directory to analyze. Otherwise analyzes the current directory *and all subdirectories*.
+Accepts only one command line argument (optional) giving the directory 
+to analyze. Otherwise analyzes the current directory *and all 
+subdirectories*.
 
 Dependencies: 
 * [mp3gain](http://mp3gain.sourceforge.net/)
@@ -59,24 +136,19 @@ Dependencies:
 
 # webserver.covers.sh
 
-Very simple script to make your album covers accessible by MPoD or other remote clients without exposing your entire music directory by copying the cover files to the webserver root. (You need to edit this, obvs.)
+Very simple script to make your album covers accessible by MPoD or 
+other remote clients without exposing your entire music directory by 
+copying the cover files to the webserver root. (You need to edit this, obvs.)
 
 Dependencies:
 * [rsync](https://en.wikipedia.org/wiki/Rsync)
 
-# mpdcontrol.sh
-
-Select whether you want to choose a playlist, or by album, artist, or genre. Clears playlist, adds what you chose, starts playing. The SSH version is for exactly that, especially if you don't have *pick* on that machine.
-
-Dependencies: 
-* [pick](https://github.com/thoughtbot/pick)
-* [mpc](http://git.musicpd.org/cgit/master/mpc.git/)
-
-![output](out.gif?raw=true "What it looks like")
-
 # terminalcovers.sh
 
-A kind of hack-y way to show terminal covers in the terminal.  Uses either AA-lib or libcaca.  AA-lib looks MUCH better, but doesn't automatically exit, so requires killall (yeah, that sucks).  You will need to *edit* the script to choose a different renderer.
+A kind of hack-y way to show terminal covers in the terminal.  Uses 
+either AA-lib or libcaca.  AA-lib looks MUCH better, but doesn't 
+automatically exit, so requires killall (yeah, that sucks).  You will 
+need to *edit* the script to choose a different renderer.
 
 Dependencies: 
 * [mpc](http://git.musicpd.org/cgit/master/mpc.git/)
@@ -94,14 +166,6 @@ One or more of the following:
 
 # mediakey.sh
 
-This script uses the MPRIS interface to control your media players.  Currently supported players include MPD, Pithos, Audacious, and Clementine
+This script uses the MPRIS interface to control your media players.  
+Currently supported players include MPD, Pithos, Audacious, and Clementine
 
-# ffixer_covers
-
-This supercedes the simple_covers scripts. This just walks recursively the directory it starts from and writes cover.jpg and folder.jpg from the embedded art in the MP3s, or tries to find it from the interwebs. The older simple_covers scripts remain as a learning exercise.
-
-Dependencies:
-
-* [glyr](https://github.com/sahib/glyr)
-* [eye3D](http://eyed3.nicfit.net/)
-* [mpc](http://git.musicpd.org/cgit/master/mpc.git/)

@@ -1,10 +1,5 @@
 #!/bin/bash
 
-# requires mpc to get song info
-# requires glyr https://github.com/sahib/glyr to retrieve metadata
-# requires eyeD3 http://eyed3.nicfit.net/ to extract image from mp3
-# Snagged mpc-based looping from http://www.hackerposse.com/~rozzin/mpdjay
-
 TMPDIR=$(mktemp -d)
 startdir="$PWD"
 
@@ -32,33 +27,38 @@ do
     BOB=""
     SONGFILE="$file"
     SongDir=$(dirname "${SONGFILE}")
+    fullpath=$(realpath "$SongDir")
+    
+    printf "%s\n" "$SongDir"
 
-    printf "." 
-
-
+    ####################################################################
+    # Do cover files exist? If so, make sure both cover and folder exist.
+    ####################################################################
     FILTER=$(find $SongDir -type f \( -name "cover.jpg" -o -name "folder.jpg" \) )
-    #check if there's a cover
-    
-    ARTIST=`eyeD3 "$SONGFILE" 2>/dev/null | grep "artist" | grep -v "UserTextFrame" | grep -v "album" | awk -F ': ' '{print $2}' | sed -e 's/[[:space:]]*$//' | tr -d '\n'`
-    ALBUM=`eyeD3 "$SONGFILE" 2>/dev/null | grep "album" | grep -v "UserTextFrame" | grep -v "artist" | grep -v "Frame"  | awk -F ': ' '{print $2}' | awk 'BEGIN {FS="\t"}; {print $1}' | sed -e 's/[[:space:]]*$//' | tr -d '\n'`
-    COVER=$(eyeD3 "$SONGFILE" 2>/dev/null |  grep "FRONT_COVER" )
-    #echo "COVER: $COVER"
-    #echo "$SONGFILE"
-    #echo "ARTIST: $ARTIST"
-    #echo "ALBUM: $ALBUM"
-    
-    #check for both cover and folder
-    if [[ ! -z "$FILTER" ]] && [[ ! -z "$COVER" ]];then
-        fullpath=$(realpath "$SongDir")
-        if [ ! -f "$fullpath/cover.jpg" ]; then
+    if [[ -z "$FILTER" ]];then
+        if [ ! -f "$fullpath/cover.jpg" ] && [ -f "$fullpath/folder.jpg" ];then
             cp "$fullpath/folder.jpg" "$fullpath/cover.jpg"
-        fi
-        if [ ! -f "$fullpath/folder.jpg" ]; then
+        elif [ ! -f "$fullpath/cover.jpg" ] && [ -f "$fullpath/folder.jpg" ];then
             cp "$fullpath/cover.jpg" "$fullpath/folder.jpg"
-        fi    
+        fi
     fi
     
+    ########################################################################
+    # Getting data from song along with a 
+    # sed one liner to remove any null bytes that might be in there
+    ########################################################################
+    DATA=`eyeD3 "$SONGFILE" 2>/dev/null | sed 's/\x0//g' `
+    COVER=$(echo "$DATA" |  grep "FRONT_COVER" )
+    ARTIST=$(echo "$DATA" | grep "artist" | grep -v "album" | awk -F ': ' '{print $2}' | sed -e 's/[[:space:]]*$//' | tr -d '\n')
+    ALBUM=$(echo "$DATA" | grep "album" | grep -v "artist" | grep -v "Frame"  | awk -F ': ' '{print $2}' | awk 'BEGIN {FS="\t"}; {print $1}' | sed -e 's/[[:space:]]*$//' | tr -d '\n')
+    
+    ####################################################################
+    # Does the MP3 have a cover file?
+    ####################################################################
+    
+    ####################################################################    
     # Albumart file, nothing in MP3
+    ####################################################################
     if [[ ! -z "$FILTER" ]] && [[ -z "$COVER" ]];then
         echo "### Cover art retrieved from music directory!"
         echo "### Cover art being copied to MP3 ID3 tags!"
@@ -71,12 +71,13 @@ do
                 convert "$SongDir/folder.jpg" "$SongDir/cover.jpg"
             fi
         fi
-        fullpath=$(realpath "$SongDir")
         echo "$fullpath/cover.jpg"
         eyeD3 --add-image="$SongDir/cover.jpg":FRONT_COVER "$SONGFILE" 2>/dev/null
     fi
 
+    ####################################################################
     # MP3 cover, no file
+    ####################################################################    
     if [[ -z "$FILTER" ]] && [[ ! -z "$COVER" ]];then
         eyeD3 --write-images=$TMPDIR "$SONGFILE" 1> /dev/null
         if [ -f "$TMPDIR/FRONT_COVER.png" ]; then
@@ -100,7 +101,6 @@ do
         if [ -f "$TMPDIR/FRONT_COVER.jpeg" ]; then
             echo "### Cover art retrieved from MP3 ID3 tags!"
             echo "### Cover art being copied to music directory!"
-            fullpath=$(realpath "$SongDir")
             echo "$fullpath/cover.jpg"
             cp "$TMPDIR/FRONT_COVER.jpeg" "$fullpath/cover.jpg"
                 echo "### Cover art being copied $SongDir/cover.jpg"
@@ -111,8 +111,9 @@ do
         fi
     fi
 
-
+    ####################################################################
     # No albumart file, nothing in MP3
+    ####################################################################    
     if [[ -z "$FILTER" ]] && [[ -z "$COVER" ]];then
         glyrc cover --artist "$ARTIST" --album "$ALBUM" --formats jpeg --write "$SongDir/cover.jpg" --from "musicbrainz;discogs;coverartarchive"
 
