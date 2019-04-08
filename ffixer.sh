@@ -11,6 +11,10 @@ fi
 
 startdir="$PWD"
 
+STARTNUM="0"
+DONENUM="0"
+STARTNUM=$(find . -type f -name '*.mp3' | wc -l)
+
 SAVEIFS=$IFS
 IFS=$(echo -en "\n\b")
 for file in $(find . -name '*.mp3') 
@@ -27,8 +31,9 @@ ORDATE=""
 SONGFILE="$file"
 FILEDATE=""
 
-echo "Checking $SONGFILE"
-
+#echo "Checking $SONGFILE"
+echo "$DONENUM out of $STARTNUM"
+DONENUM=$((DONENUM + 1))
 ########################################################################
 # getting current modification time so that this doesn't make all your 
 # music files "new"
@@ -169,12 +174,12 @@ fi
 ########################################################################
 touch -mh --date="$FILEDATE" "$SONGFILE"
 
-echo "$ADATE"
-echo "$RDATE"
-echo "$ORDATE"
+#echo "$ADATE"
+#echo "$RDATE"
+#echo "$ORDATE"
 
-echo "$TITLE"
-echo "$ARTIST"
-echo "$ALBUMARTIST"
-echo "$COMPOSER"
+#echo "$TITLE"
+#echo "$ARTIST"
+#echo "$ALBUMARTIST"
+#echo "$COMPOSER"
 done

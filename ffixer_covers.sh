@@ -3,6 +3,10 @@
 TMPDIR=$(mktemp -d)
 startdir="$PWD"
 
+STARTNUM="0"
+DONENUM="0"
+STARTNUM=$(find . -type f -name '*.mp3' | wc -l)
+
 function cleanup {
     # I use trash-cli here instead of rm
     # https://github.com/andreafrancia/trash-cli
@@ -29,8 +33,10 @@ do
     SongDir=$(dirname "${SONGFILE}")
     fullpath=$(realpath "$SongDir")
     
-    printf "%s\n" "$SongDir"
-
+    #printf "%s\n" "$SongDir"
+    #echo "Checking $SONGFILE"
+    echo "$DONENUM out of $STARTNUM"
+    DONENUM=$((DONENUM + 1))
     ####################################################################
     # Do cover files exist? If so, make sure both cover and folder exist.
     ####################################################################
@@ -71,7 +77,7 @@ do
                 convert "$SongDir/folder.jpg" "$SongDir/cover.jpg"
             fi
         fi
-        echo "$fullpath/cover.jpg"
+        #echo "$fullpath/cover.jpg"
         eyeD3 --add-image="$SongDir/cover.jpg":FRONT_COVER "$SONGFILE" 2>/dev/null
     fi
 
@@ -81,14 +87,14 @@ do
     if [[ -z "$FILTER" ]] && [[ ! -z "$COVER" ]];then
         eyeD3 --write-images=$TMPDIR "$SONGFILE" 1> /dev/null
         if [ -f "$TMPDIR/FRONT_COVER.png" ]; then
-            echo "### Converting PNG into JPG"
+            #echo "### Converting PNG into JPG"
             convert "$TMPDIR/FRONT_COVER.png" "$TMPDIR/FRONT_COVER.jpeg"
         fi
         # Catching when it's sometimes stored as "Other" tag instead of FRONT_COVER
         # but only when FRONT_COVER doesn't exist.
         if [ ! -f "$TMPDIR/FRONT_COVER.jpeg" ]; then
             if [ -f "$TMPDIR/OTHER.png" ]; then
-                echo "converting PNG into JPG"
+                #echo "converting PNG into JPG"
                 convert "$TMPDIR/OTHER.png" "$TMPDIR/OTHER.jpeg"
             fi
             if [ -f "$TMPDIR/OTHER.jpeg" ]; then
@@ -99,11 +105,11 @@ do
             fi            
         fi  
         if [ -f "$TMPDIR/FRONT_COVER.jpeg" ]; then
-            echo "### Cover art retrieved from MP3 ID3 tags!"
-            echo "### Cover art being copied to music directory!"
-            echo "$fullpath/cover.jpg"
+            #echo "### Cover art retrieved from MP3 ID3 tags!"
+            #echo "### Cover art being copied to music directory!"
+            #echo "$fullpath/cover.jpg"
             cp "$TMPDIR/FRONT_COVER.jpeg" "$fullpath/cover.jpg"
-                echo "### Cover art being copied $SongDir/cover.jpg"
+            #echo "### Cover art being copied $SongDir/cover.jpg"
             if [ ! -f "$fullpath/cover.jpg" ]; then
                 cp "$TMPDIR/FRONT_COVER.jpeg" "$fullpath/cover.jpg"
                 cp "$TMPDIR/FRONT_COVER.jpeg" "$fullpath/folder.jpg"
@@ -120,9 +126,9 @@ do
         #tempted to be a hard stop here, because sometimes these covers are just wrong.
         if [ -f "$SongDir\cover.jpg" ]; then
             convert "$SongDir\cover.jpg" "$SongDir\folder.jpg"
-            echo "Cover art found online; you may wish to check it before embedding it."
-        else
-            echo "No cover art found online or elsewhere."
+            #echo "Cover art found online; you may wish to check it before embedding it."
+        #else
+            #echo "No cover art found online or elsewhere."
         fi        
     fi
 
