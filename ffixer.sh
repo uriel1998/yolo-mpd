@@ -30,6 +30,7 @@ ODATE=""
 ORDATE=""
 SONGFILE="$file"
 FILEDATE=""
+DATA=""
 
 #echo "Checking $SONGFILE"
 echo "$DONENUM out of $STARTNUM"
@@ -43,8 +44,10 @@ FILEDATE=$(stat "$SONGFILE" | grep "Modify" | awk '{print $2}')
 ########################################################################
 # Getting data from song along with a 
 # sed one liner to remove any null bytes that might be in there
+# Just removing it seemed to cause problems, so maybe throwing in a 
+# carriage return?
 ########################################################################
-DATA=`eyeD3 "$SONGFILE" 2>/dev/null | sed 's/\x0//g' `
+DATA=`eyeD3 "$SONGFILE" 2>/dev/null | sed 's/\x0/\\n/g' `
 
 ########################################################################
 # Checking for brackets and vs and such for mashups
