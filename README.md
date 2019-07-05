@@ -68,6 +68,9 @@ genre. Clears playlist, adds what you chose, starts playing. The SSH
 version is for exactly that, especially if you don't have `pick` on 
 that machine.
 
+The `mpdcontrol_add.sh` file does *not* clear the queue so that you can add to 
+the existing playlist.
+
 Dependencies: 
 * [pick](https://github.com/thoughtbot/pick)
 * [mpc](http://git.musicpd.org/cgit/master/mpc.git/)
