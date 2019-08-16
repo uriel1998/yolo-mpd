@@ -109,6 +109,10 @@ I already have eyeD3 for the album art script; a solution
 that does not rely on that dependency can be found 
 at [bpmwrap](https://github.com/meridius/bpmwrap).
 
+`bpm-tools` outputs error messages if you do not have id3v2 and sox with mp3 
+headers already installed and thus makes the script fail. You can either tweak 
+the script or install the packages `sox`, `libsox-fmt-mp3`, and `id3v2`.
+
 Accepts two command line arguments (optional)
 
 Use --save-existing to save existing data.  
