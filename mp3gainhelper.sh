@@ -31,4 +31,7 @@ done
 
 unset IFS
 
+#to ensure python2 compatibility for the moment
+source /home/steven/apps/ape2id3/bin/activate
 find . -type f -iname '*.mp3' -exec ape2id3.py -df {} \;
+deactivate

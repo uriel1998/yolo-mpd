@@ -55,6 +55,7 @@ It will also embed found cover art into the ID3 tags if none exists, and
 will attempt (if not found in any of the above) to find a cover on the 
 interwebs. 
 
+
 Dependencies:
 
 * [glyr](https://github.com/sahib/glyr)
