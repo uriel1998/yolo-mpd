@@ -18,36 +18,61 @@
 		CHOICE=$(echo "$1")
 	fi
 
-
+        
+    
 	case "$CHOICE" in
 		"a") 
-			artist=$(mpc list artist | pick)
-			mpc clear -q
-			mpc findadd artist "$artist" 
-			mpc shuffle -q
-			mpc play
+            if [ -f $(which fzf) ];then 
+                result=$(mpc list artist | fzf --multi)
+            else
+                result=$(mpc list artist | pick)
+            fi
+            mpc clear -q
+            while IFS= read -r artist; do
+                mpc findadd artist "${artist}" 
+                mpc shuffle -q
+                mpc play
+            done <<< "$result"
 		;;
 		"l") 
-			album=$(mpc list album | pick)
-			mpc clear -q
-			mpc findadd album "$album"
-			mpc random off
-			mpc play
+
+            if [ -f $(which fzf) ];then 
+                result=$(mpc list album | fzf --multi)
+            else
+                result=$(mpc list album | pick)
+            fi
+            mpc clear -q
+            while IFS= read -r album; do
+                mpc findadd album "$album"
+                mpc random off
+                mpc play
+            done <<< "$result"
 		;;
 
 		"g") 
-			genre=$(mpc list genre | pick)
-			mpc clear -q
-			mpc findadd genre "$genre" 
-			mpc shuffle -q
-			mpc play
+            if [ -f $(which fzf) ];then 
+                result=$(mpc list genre | fzf --multi)
+            else
+                result=$(mpc list genre | pick)
+            fi
+            mpc clear -q
+            while IFS= read -r genre; do
+                mpc findadd genre "$genre" 
+                mpc shuffle -q
+                mpc play
+            done <<< "$result"
 		;;
 		"p")
-			playlist=$(mpc lsplaylists| pick)
-			mpc clear -q
-			mpc load "$playlist" 
-			mpc shuffle -q
-			mpc play
+            if [ -f $(which fzf) ];then 
+                result=$(mpc lsplaylists | fzf --multi)
+            else
+                result=$(mpc lsplaylists | pick)
+            fi
+            while IFS= read -r playlist; do
+                mpc load "$playlist" 
+                mpc shuffle -q
+                mpc play
+            done <<< "$result"
 		;;
 		"q")
 		;;
