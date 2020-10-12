@@ -82,7 +82,7 @@ Dependencies:
 Optional Dependency
 * [fzf](https://github.com/junegunn/fzf)
 
-![output](out.gif?raw=true "What it looks like")
+![output](https://github.com/uriel1998/yolo-mpd/raw/master/out.gif "What it looks like")
 
 
 # terminal_multiplexer
@@ -101,9 +101,9 @@ One or more of the following:
 * [libcaca](http://caca.zoy.org/wiki/libcaca)
 * [img2text](https://github.com/hit9/img2txt)
 
-![AA-lib](aaview_layout.jpg)
-![asciiart](asciiart_layout.jpg?raw=true "asciiart output")
-![img2txt](img2txt_layout.jpg?raw=true "img2txt output")
+![AA-lib](https://github.com/uriel1998/yolo-mpd/raw/master/aaview_layout.jpg)
+![asciiart](https://github.com/uriel1998/yolo-mpd/raw/master/asciiart_layout.jpg "asciiart output")
+![img2txt](https://github.com/uriel1998/yolo-mpd/raw/master/img2txt_layout.jpg "img2txt output")
 
 
 # bpmhelper.sh
@@ -174,9 +174,9 @@ One or more of the following:
 * [img2text](https://github.com/hit9/img2txt)
 
 ### AA-lib output
-![AA-lib](aaview_output.png?raw=true "AA-lib output")
+![AA-lib](https://github.com/uriel1998/yolo-mpd/raw/master/aaview_output.png "AA-lib output")
 ### libcaca output
-![LibCaca](libcaca_output.png?raw=true "libcaca output")
+![LibCaca](https://github.com/uriel1998/yolo-mpd/raw/master/libcaca_output.png "libcaca output")
 
 # mediakey.sh
 
