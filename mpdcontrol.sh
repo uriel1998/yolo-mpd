@@ -18,13 +18,17 @@
     if [ "$1" == "-a" ];then
         ADDMODE=1
     fi
+
+clearmode (){
+    
+        if [ "$ADDMODE" = "" ];then
+            mpc --host "$MPD_HOST" clear -q
+        fi
+}
     
     echo -e "\E[0;32m(\E[0;37mg\E[0;32m)enre, (\E[0;37mA\E[0;32m)lbumartist, (\E[0;37ma\E[0;32m)rtist, a(\E[0;37ml\E[0;32m)bum, (\E[0;37mp\E[0;32m)laylist, or (\E[0;37mq\E[0;32m)uit? "; tput sgr0
     read -r CHOICE
 
-    if [ "$ADDMODE" = "" ];then
-        mpc --host "$MPD_HOST" clear -q
-    fi
     
 	case "$CHOICE" in
 		"A") 
@@ -33,6 +37,7 @@
             else
                 result=$(mpc --host "$MPD_HOST" list albumartist | pick)
             fi            
+            clearmode
             while IFS= read -r albumartist; do
                 mpc --host "$MPD_HOST" findadd albumartist "${albumartist}" 
                 mpc --host "$MPD_HOST" shuffle -q
@@ -45,6 +50,7 @@
             else
                 result=$(mpc --host "$MPD_HOST" list artist | pick)
             fi
+            clearmode
             while IFS= read -r artist; do
                 mpc --host "$MPD_HOST" findadd artist "${artist}" 
                 mpc --host "$MPD_HOST" shuffle -q
@@ -58,6 +64,7 @@
             else
                 result=$(mpc --host "$MPD_HOST" list album | pick)
             fi
+            clearmode
             while IFS= read -r album; do
                 mpc --host "$MPD_HOST" findadd album "$album"
                 mpc --host "$MPD_HOST" random off
@@ -71,6 +78,7 @@
             else
                 result=$(mpc --host "$MPD_HOST" list genre | pick)
             fi
+            clearmode
             while IFS= read -r genre; do
                 mpc --host "$MPD_HOST" findadd genre "$genre" 
                 mpc --host "$MPD_HOST" shuffle -q
@@ -83,6 +91,7 @@
             else
                 result=$(mpc --host "$MPD_HOST" lsplaylists | pick)
             fi
+            clearmode            
             while IFS= read -r playlist; do
                 mpc --host "$MPD_HOST" load "$playlist" 
                 mpc --host "$MPD_HOST" shuffle -q
