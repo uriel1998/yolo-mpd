@@ -12,7 +12,7 @@
 
 
 	if [ "$1" == "" ]; then
-		echo -e "\E[0;32m(\E[0;37mg\E[0;32m)enre, (\E[0;37ma\E[0;32m)rtist, a(\E[0;37ml\E[0;32m)bum, (\E[0;37mp\E[0;32m)laylist, or (\E[0;37mq\E[0;32m)uit? "; tput sgr0
+		echo -e "\E[0;32m(\E[0;37mg\E[0;32m)enre, (\E[0;37mA\E[0;32m)lbumartist, (\E[0;37ma\E[0;32m)rtist, a(\E[0;37ml\E[0;32m)bum, (\E[0;37mp\E[0;32m)laylist, or (\E[0;37mq\E[0;32m)uit? "; tput sgr0
 		read CHOICE
 	else
 		CHOICE=$(echo "$1")
@@ -21,6 +21,19 @@
         
     
 	case "$CHOICE" in
+		"A") 
+            if [ -f $(which fzf) ];then 
+                result=$(mpc list albumartist | fzf --multi)
+            else
+                result=$(mpc list albumartist | pick)
+            fi
+            mpc clear -q
+            while IFS= read -r albumartist; do
+                mpc findadd albumartist "${albumartist}" 
+                mpc shuffle -q
+                mpc play
+            done <<< "$result"
+		;;
 		"a") 
             if [ -f $(which fzf) ];then 
                 result=$(mpc list artist | fzf --multi)
