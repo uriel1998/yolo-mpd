@@ -11,9 +11,9 @@ startdir="$PWD"
 IFS=$'\n'
 
 for f in $(find "$startdir" -name '*.mp3' );do 
-    rdate=$(eyeD3 -l critical "$f" | grep "release date" | awk -F ': ' '{ print $2 }' | awk -F '-' '{print $1}')
-    ordate=$(eyeD3 -l critical "$f" | grep "original release date" | awk -F ': ' '{ print $2 }' | awk -F '-' '{print $1}')
-    recdate=$(eyeD3 -l critical "$f" | grep "recording date" | awk -F ': ' '{ print $2 }' | awk -F '-' '{print $1}')
+    rdate=$(eyeD3 -l critical "$f" | grep -E "^release date:" | awk -F ': ' '{ print $2 }' | awk -F '\n' '{print $1}' | awk -F '-' '{print $1}')
+    ordate=$(eyeD3 -l critical "$f" | grep -E "^original release date:" | awk -F ': ' '{ print $2 }' | awk -F '-' '{print $1}')
+    recdate=$(eyeD3 -l critical "$f" | grep -E "^recording date:" | awk -F ': ' '{ print $2 }' | awk -F '-' '{print $1}')
 
 	if [ -n "${rdate}" ];then
         eyeD3 --quiet -l critical --release-date="${rdate}" "$f"
