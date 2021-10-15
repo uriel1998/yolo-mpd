@@ -9,12 +9,15 @@ startdir="$PWD"
 # the whole operation doesn't die if mp3gain throws an error ungracefully
 
 IFS=$'\n'
-
-
+ENTRIES=$(find "$startdir" -name '*.mp3' -printf '%h\n' |  grep -c / )
+CURRENTENTRY=1
 
 for f in $(find "$startdir" -name '*.mp3' );do 
+    echo "$CURRENTENTRY of $ENTRIES $dir"
+    CURRENTENTRY=$(($CURRENTENTRY+1))
+
     
-    scratch=$(ffprobe "${f}" 2>&1 )
+    scratch=$(ffprobe "$f" 2>&1 )
     o_rdate=$(echo "${scratch}" | grep -E "^    date" | awk -F ': ' '{ print $2 }'  | tr -d [:cntrl:])
     o_ordate=$(echo "${scratch}" | grep -E "^    originalyear" | awk -F ': ' '{ print $2 }'  | tr -d [:cntrl:])
     o_recdate=$(echo "${scratch}" | grep -E "^    TDOR"| awk -F ': ' '{ print $2 }'  | tr -d [:cntrl:])
@@ -37,24 +40,18 @@ for f in $(find "$startdir" -name '*.mp3' );do
         if [ "${o_rdate}" != "${rdate}" ];then
             echo "### Changing release date for ${f} from ${o_rdate} ${rdate}"
             eyeD3 --quiet -l critical --release-date="${rdate}" "$f"
-        else
-            echo "No change needed with release date for ${f}"
         fi
     fi
 	if [ -n "${ordate}" ];then
         if [ "${o_ordate}" != "${ordate}" ];then
             echo "### Changing original release date for ${f}"
             eyeD3 --quiet -l critical --orig-release-date="${ordate}" "$f"
-        else
-            echo "No change needed with original release date for ${f}"
         fi
     fi
 	if [ -n "${recdate}" ];then
         if [ "${o_recdate}" != "${recdate}" ];then
             echo "### Changing recording date for ${f} from ${o_recdate} to ${recdate}"
             eyeD3 --quiet -l critical --recording-date="${recdate}" "$f"
-        else
-            echo "No change needed with recording date for ${f}"
         fi
     fi
 done
