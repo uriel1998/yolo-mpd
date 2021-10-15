@@ -11,18 +11,35 @@ startdir="$PWD"
 IFS=$'\n'
 
 for f in $(find "$startdir" -name '*.mp3' );do 
-    rdate=$(eyeD3 -l critical "$f" | grep -E "^release date:" | awk -F ': ' '{ print $2 }' | awk -F '\n' '{print $1}' | awk -F '-' '{print $1}')
-    ordate=$(eyeD3 -l critical "$f" | grep -E "^original release date:" | awk -F ': ' '{ print $2 }' | awk -F '-' '{print $1}')
-    recdate=$(eyeD3 -l critical "$f" | grep -E "^recording date:" | awk -F ': ' '{ print $2 }' | awk -F '-' '{print $1}')
+    scratch=$(eyeD3 -l critical "$f")
+    o_rdate=$(echo "${scratch}" | grep -E "^release date:" | awk -F ': ' '{ print $2 }' )
+    o_ordate=$(echo "${scratch}" | grep -E "^original release date:" | awk -F ': ' '{ print $2 }' )
+    o_recdate=$(echo "${scratch}" | grep -E "^recording date:" | awk -F ': ' '{ print $2 }' )
+
+    rdate=$(echo "${scratch}" | grep -E "^release date:" | awk -F ': ' '{ print $2 }' | awk -F '-' '{print $1}')
+    ordate=$(echo "${scratch}" | grep -E "^original release date:" | awk -F ': ' '{ print $2 }' | awk -F '-' '{print $1}')
+    recdate=$(echo "${scratch}" | grep -E "^recording date:" | awk -F ': ' '{ print $2 }' | awk -F '-' '{print $1}')
 
 	if [ -n "${rdate}" ];then
-        eyeD3 --quiet -l critical --release-date="${rdate}" "$f"
+        if [ "${o_rdate}" != "${rdate}" ];then
+            eyeD3 --quiet -l critical --release-date="${rdate}" "$f"
+        else
+            echo "No change needed with release date for ${f}"
+        fi
     fi
 	if [ -n "${ordate}" ];then
-        eyeD3 --quiet -l critical --orig-release-date="${ordate}" "$f"
+        if [ "${o_ordate}" != "${ordate}" ];then
+            eyeD3 --quiet -l critical --orig-release-date="${ordate}" "$f"
+        else
+            echo "No change needed with original release date for ${f}"
+        fi
     fi
 	if [ -n "${recdate}" ];then
-        eyeD3 --quiet -l critical --recording-date="${recdate}" "$f"
+        if [ "${o_recdate}" != "${recdate}" ];then
+            eyeD3 --quiet -l critical --recording-date="${recdate}" "$f"
+        else
+            echo "No change needed with recording date for ${f}"
+        fi
     fi
 done
 
