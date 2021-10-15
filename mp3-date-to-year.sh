@@ -22,6 +22,7 @@ for f in $(find "$startdir" -name '*.mp3' );do
 
 	if [ -n "${rdate}" ];then
         if [ "${o_rdate}" != "${rdate}" ];then
+            echo "### Changing release date for ${f}"
             eyeD3 --quiet -l critical --release-date="${rdate}" "$f"
         else
             echo "No change needed with release date for ${f}"
@@ -29,6 +30,7 @@ for f in $(find "$startdir" -name '*.mp3' );do
     fi
 	if [ -n "${ordate}" ];then
         if [ "${o_ordate}" != "${ordate}" ];then
+            echo "### Changing original release date for ${f}"
             eyeD3 --quiet -l critical --orig-release-date="${ordate}" "$f"
         else
             echo "No change needed with original release date for ${f}"
@@ -36,6 +38,7 @@ for f in $(find "$startdir" -name '*.mp3' );do
     fi
 	if [ -n "${recdate}" ];then
         if [ "${o_recdate}" != "${recdate}" ];then
+            echo "### Changing recording date for ${f}"
             eyeD3 --quiet -l critical --recording-date="${recdate}" "$f"
         else
             echo "No change needed with recording date for ${f}"
