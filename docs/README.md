@@ -14,6 +14,7 @@ or found and tweaked.
  7. [webserver.covers.sh](webserver.covers.sh)
  8. [terminalcovers.sh](terminalcovers.sh)
  9. [mediakey.sh](mediakey.sh)
+ 10. [mp3-date-to-year.sh](mp3-date-to-year.sh)
 
 
 # ffixer
@@ -183,3 +184,9 @@ One or more of the following:
 This script uses the MPRIS interface to control your media players.  
 Currently supported players include MPD, Pithos, Audacious, and Clementine
 
+# mp3-date-to-year.sh
+
+ * [eye3D](http://eyed3.nicfit.net/)
+ 
+ A simple script to will only change the date fields (release date, original 
+ release date, recording date) to *just* the year field if they exist.
