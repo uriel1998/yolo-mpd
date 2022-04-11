@@ -17,20 +17,22 @@ Various MP3 and MPD tweaks, tips, tools, and scripts I've put together or found 
   11. [mp3-date-to-year.sh](mp3-date-to-year.sh)
 
 
-# stream_to_mpd
-Dependencies: 
-* [streamlink](https://streamlink.github.io/)
-* `grep`, `awk`,`curl`,`wget`, and `zenity`, all likely included in your distro packaging.
+# stream_to_mpd  
+
+Dependencies:  
+
+* [streamlink](https://streamlink.github.io/)  
+* `grep`, `awk`,`curl`,`wget`, and `zenity`, all likely included in your distro packaging.  
 
 Feed this utility a stream (including anything `streamlink` can handle, such as twitch music streamers) and it will pipe it through to your MPD server or save the stream URL in a file (such as an MPD playlist).  Uses `zenity` for gui dialogs if you do not specify elements on the commandline. Originally inspired by [this blog post](https://www.gebbl.net/2013/10/playing-internet-radio-streams-mpdmpc-little-bash-python/)
 
-Usage: `stream_to_mpd [OPTIONS] [STREAM_URL]`
+Usage: `stream_to_mpd [OPTIONS] [STREAM_URL]`  
 
-`--host PASSWORD@HOST`: Needed if your MPD server is not on localhost or you have a password set
-`--mpd` : skip right to MPD output
-`--playlist` : skip right to adding stream URL to a file/playlist
-`--native` : Throw the result to streamlink (probably not needed, but hey)
-`--bookmarks` : use `zenity` to choose a hardcoded bookmark instead of a stream URL
+`--host PASSWORD@HOST`: Needed if your MPD server is not on localhost or you have a password set  
+`--mpd` : skip right to MPD output  
+`--playlist` : skip right to adding stream URL to a file/playlist  
+`--native` : Throw the result to streamlink (probably not needed, but hey)  
+`--bookmarks` : use `zenity` to choose a hardcoded bookmark instead of a stream URL  
 
 # ffixer
 
