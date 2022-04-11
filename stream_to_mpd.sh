@@ -70,7 +70,7 @@ if [ -z "${OutPut}" ];then
 fi
 
 if [ "${BookMarks}" == "True" ];then
-    InvokedOpts=$(zenity  --list  --text "Which stream to choose?" --radiolist  --column "Pick" --column "Stream" TRUE https://twitch.tv/biochili FALSE https://twitch.tv/lobsterdust FALSE https://twitch.tv/BootieMashup FALSE https://twitch.tv/VoxSinistra FALSE http://www.lounge-radio.com/listen128.m3u FALSE http://somafm.com/beatblender.pls FALSE http://somafm.com/groovesalad.pls FALSE http://somafm.com/dronezone.pls FALSE http://somafm.com/spacestation.pls)
+    InvokedOpts=$(zenity  --list  --text "Which stream to choose?" --radiolist  --column "Pick" --column "Stream" TRUE https://twitch.tv/biochili FALSE https://twitch.tv/lobsterdust FALSE https://twitch.tv/BootieMashup FALSE https://twitch.tv/VoxSinistra FALSE https://somafm.com/covers.pls FALSE https://somafm.com/metal.pls FALSE http://somafm.com/beatblender.pls FALSE http://somafm.com/groovesalad.pls FALSE http://somafm.com/dronezone.pls FALSE http://somafm.com/spacestation.pls)
 fi
 
 # See if streamlink can handle the url...
