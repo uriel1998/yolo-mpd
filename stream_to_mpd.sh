@@ -74,7 +74,7 @@ if [ "${BookMarks}" == "True" ];then
 fi
 
 # See if streamlink can handle the url...
-StreamLink=$(/usr/bin/streamlink --can-handle-url "${InvokedOpts}")
+StreamLink=$(/usr/bin/streamlink --can-handle-url "${InvokedOpts}";echo $?)
 if [ "$StreamLink" != "0" ];then
     # not streamlink; ensure content type
     MimeType=$(/usr/bin/curl -k -s --fail -m 2 --location -sS --head "${InvokedOpts}" | grep -i "content-type" | awk -F '/' '{print $2}')
