@@ -1,21 +1,36 @@
 yolo-mpd
 ========
 
-Various MP3 and MPD tweaks, tips, tools, and scripts I've put together 
-or found and tweaked.
+Various MP3 and MPD tweaks, tips, tools, and scripts I've put together or found and tweaked.
 
 ## Contents
- 1. [ffixer](ffixer)
- 2. [ffixer-covers](ffixer-covers)
- 3. [mpdcontrol.sh](mpdcontrol.sh)
- 4. [terminal-multiplexer](terminal-multiplexer)
- 5. [bpmhelper](bpmhelper)
- 6. [mp3gainhelper](mp3gainhelper)
- 7. [webserver.covers.sh](webserver.covers.sh)
- 8. [terminalcovers.sh](terminalcovers.sh)
- 9. [mediakey.sh](mediakey.sh)
- 10. [mp3-date-to-year.sh](mp3-date-to-year.sh)
+  1. [stream_to_mpd](stream_to_mpd)
+  2. [ffixer](ffixer)
+  3. [ffixer-covers](ffixer-covers)
+  4. [mpdcontrol.sh](mpdcontrol.sh)
+  5. [terminal-multiplexer](terminal-multiplexer)
+  6. [bpmhelper](bpmhelper)
+  7. [mp3gainhelper](mp3gainhelper)
+  8. [webserver.covers.sh](webserver.covers.sh)
+  9. [terminalcovers.sh](terminalcovers.sh)
+  10. [mediakey.sh](mediakey.sh)
+  11. [mp3-date-to-year.sh](mp3-date-to-year.sh)
 
+
+# stream_to_mpd
+Dependencies: 
+* [streamlink](https://streamlink.github.io/)
+* `grep`, `awk`,`curl`,`wget`, and `zenity`, all likely included in your distro packaging.
+
+Feed this utility a stream (including anything `streamlink` can handle, such as twitch music streamers) and it will pipe it through to your MPD server or save the stream URL in a file (such as an MPD playlist).  Uses `zenity` for gui dialogs if you do not specify elements on the commandline. Originally inspired by [this blog post](https://www.gebbl.net/2013/10/playing-internet-radio-streams-mpdmpc-little-bash-python/)
+
+Usage: `stream_to_mpd [OPTIONS] [STREAM_URL]`
+
+`--host PASSWORD@HOST`: Needed if your MPD server is not on localhost or you have a password set
+`--mpd` : skip right to MPD output
+`--playlist` : skip right to adding stream URL to a file/playlist
+`--native` : Throw the result to streamlink (probably not needed, but hey)
+`--bookmarks` : use `zenity` to choose a hardcoded bookmark instead of a stream URL
 
 # ffixer
 
@@ -187,6 +202,6 @@ Currently supported players include MPD, Pithos, Audacious, and Clementine
 # mp3-date-to-year.sh
 
  * [eye3D](http://eyed3.nicfit.net/)
- 
+
  A simple script to will only change the date fields (release date, original 
  release date, recording date) to *just* the year field if they exist.
