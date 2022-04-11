@@ -16,7 +16,7 @@
 ##############################################################################
 
 
-show_help {
+show_help() {
     echo "stream_to_mpd [OPTIONS] STREAM"
     echo "For piping a stream into MPD or an MPD playlist."
     echo " "
@@ -53,8 +53,9 @@ do
             BookMarks="True"
             ;;
         "--host")
-            shift
             HostString="--host ${2}"
+            shift
+            shift
             ;;
         "--native")
             OutPut="Local"
