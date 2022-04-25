@@ -16,8 +16,13 @@ for f in $(find "$startdir" -name '*.mp3' );do
     echo "$CURRENTENTRY of $ENTRIES $dir"
     CURRENTENTRY=$(($CURRENTENTRY+1))
 
+    ########################################################################
+    # getting current modification time so that this doesn't make all your 
+    # music files "new"
+    ########################################################################
+    FILEDATE=$(stat "${f}" | grep "Modify" | awk '{print $2}')
     
-    scratch=$(ffprobe "$f" 2>&1 )
+    scratch=$(ffprobe "${f}" 2>&1 )
     o_rdate=$(echo "${scratch}" | grep -E "^    date" | awk -F ': ' '{ print $2 }'  | tr -d [:cntrl:])
     o_ordate=$(echo "${scratch}" | grep -E "^    originalyear" | awk -F ': ' '{ print $2 }'  | tr -d [:cntrl:])
     o_recdate=$(echo "${scratch}" | grep -E "^    TDOR"| awk -F ': ' '{ print $2 }'  | tr -d [:cntrl:])
@@ -36,24 +41,30 @@ for f in $(find "$startdir" -name '*.mp3' );do
     # ordate=$(echo "${scratch}" | grep -E "^original release date:" | awk -F ': ' '{ print $2 }' | awk -F '-' '{print $1}')
     # recdate=$(echo "${scratch}" | grep -E "^recording date:" | awk -F ': ' '{ print $2 }' | awk -F '-' '{print $1}')
 
-	if [ -n "${rdate}" ];then
+    if [ -n "${rdate}" ];then
         if [ "${o_rdate}" != "${rdate}" ];then
             echo "### Changing release date for ${f} from ${o_rdate} ${rdate}"
             eyeD3 --quiet -l critical --release-date="${rdate}" "$f"
         fi
     fi
-	if [ -n "${ordate}" ];then
+    if [ -n "${ordate}" ];then
         if [ "${o_ordate}" != "${ordate}" ];then
             echo "### Changing original release date for ${f}"
             eyeD3 --quiet -l critical --orig-release-date="${ordate}" "$f"
         fi
     fi
-	if [ -n "${recdate}" ];then
+    if [ -n "${recdate}" ];then
         if [ "${o_recdate}" != "${recdate}" ];then
             echo "### Changing recording date for ${f} from ${o_recdate} to ${recdate}"
             eyeD3 --quiet -l critical --recording-date="${recdate}" "$f"
         fi
     fi
+    ########################################################################
+    # Resetting file modification date
+    ########################################################################
+    touch -mh --date="${FILEDATE}" "${f}"
+
+
 done
 
 unset IFS
