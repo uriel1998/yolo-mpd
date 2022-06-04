@@ -5,16 +5,28 @@ Various MP3 and MPD tweaks, tips, tools, and scripts I've put together or found 
 
 ## Contents
   1. [stream_to_mpd](stream_to_mpd)
+
   2. [ffixer](ffixer)
-  3. [ffixer-covers](ffixer-covers)
-  4. [mpdcontrol.sh](mpdcontrol.sh)
-  5. [terminal-multiplexer](terminal-multiplexer)
-  6. [bpmhelper](bpmhelper)
-  7. [mp3gainhelper](mp3gainhelper)
-  8. [webserver.covers.sh](webserver.covers.sh)
-  9. [terminalcovers.sh](terminalcovers.sh)
-  10. [mediakey.sh](mediakey.sh)
-  11. [mp3-date-to-year.sh](mp3-date-to-year.sh)
+
+  3. [mp3-date-to-year.sh](mp3-date-to-year.sh)
+
+  4. [ffixer-covers](ffixer-covers)
+
+  5. [mpdcontrol.sh](mpdcontrol.sh)
+
+  6. [terminal-multiplexer](terminal-multiplexer)
+
+  7. [bpmhelper](bpmhelper)
+
+  8. [mp3gainhelper](mp3gainhelper)
+
+  9. [webserver.covers.sh](webserver.covers.sh)
+
+  10. [terminalcovers.sh](terminalcovers.sh)
+
+  11. [mediakey.sh](mediakey.sh)
+
+      
 
 
 # stream_to_mpd  
@@ -44,54 +56,46 @@ Dependencies:
 This utility does a few things automatically that I like to keep my 
 collection in order.  
 
-First, it finds MP3 files that have song titles 
-like "Scratches All Down My Back (Buckcherry vs.Toto)" and moves the 
-artists that are in the parentheses or brackets to the "Album Artist" 
-field. Searches recursively from the directory you run it in, and 
-stores a CSV of changes made in your $HOME directory. Use --dryrun as 
-an option first if you like.
+First, it finds MP3 files that have song titles like "Scratches All Down My Back (Buckcherry vs.Toto)" and moves the 
+artists that are in the parentheses or brackets to the "Album Artist" field. Searches recursively from the directory you run it in, and stores a CSV of changes made in your $HOME directory. Use --dryrun as an option first if you like.
 
-Second, it fills in the album artist and composer fields if they are 
-empty, preferentially using the artist tag. I like this because different 
-music players sort "artists" using different fields.
+Second, it fills in the album artist and composer fields if they are empty, preferentially using the artist tag. I like this because different music players sort "artists" using different fields.
 
 Third, it standardizes all the "date" fields (release date, original 
-release date, and recording date) to YYYY *only* and fills in any 
-empty fields.
+release date, and recording date) to YYYY *only* and fills in any empty fields.
 
-Finally, it does all this while preserving the original file 
-modification time so that your collection isn't a flying mess of "new" 
-tracks.
+Finally, it does all this while preserving the original file modification time so that your collection isn't a flying mess of "new" tracks.
+
+# mp3-date-to-year.sh
+
+Dependencies:
+
+ * [eye3D](http://eyed3.nicfit.net/)
+
+ A simple script that only changes the date fields (release date, original  release date, recording date) to *just* the year field if they exist.
 
 # ffixer_covers
 
-This script walks recursively from the directory it starts from and 
-ensures there are *both* `cover.jpg` and `folder.jpg` files. If none 
-exists in the directory, it attempts to extract them from the ID3 tags. 
+This script walks recursively from the directory it starts from and ensures there are *both* `cover.jpg` and `folder.jpg` files. If none exists in the directory, it attempts to extract them from the ID3 tags using `eyeD3`. 
 
-It will also embed found cover art into the ID3 tags if none exists, and 
-will attempt (if not found in any of the above) to find a cover on the 
-interwebs. 
+It will also attempt (if not found in any of the above) to find a cover on the interwebs using `sacad`
 
 
 Dependencies:
 
+* ffprobe (from ffmpeg) for song information
 * [glyr](https://github.com/sahib/glyr)
-* [eye3D](http://eyed3.nicfit.net/)
+* [eyeD3](http://eyed3.nicfit.net/)
 * [mpc](http://git.musicpd.org/cgit/master/mpc.git/)
+* [sacad](https://github.com/desbma/sacad)
 
 # mpdcontrol.sh
 
-Select whether you want to choose a playlist, or by album, artist, or 
-genre. Clears playlist, adds what you chose, starts playing. The SSH 
-version is for exactly that, especially if you don't have `pick` on 
-that machine.
+Select whether you want to choose a playlist, or by album, artist, or genre. Clears playlist, adds what you chose, starts playing. The SSH version is for exactly that, especially if you don't have `pick` on that machine.
 
-Optionally, if `fzf` is installed on the system, it will seamlessly substitute 
-that program in, with the option to select multiple entries at once (use TAB). 
+Optionally, if `fzf` is installed on the system, it will seamlessly substitute that program in, with the option to select multiple entries at once (use TAB). 
 
-The `mpdcontrol_add.sh` file does *not* clear the queue so that you can add to 
-the existing playlist.
+The `mpdcontrol_add.sh` file does *not* clear the queue so that you can add to the existing playlist.
 
 Dependencies: 
 * [pick](https://github.com/thoughtbot/pick)
@@ -152,15 +156,9 @@ Dependencies
 
 # mp3gainhelper.sh
 
-Performs mp3gain analysis and writes to id3 tags. The MP3Gain utility 
-apparently writes by default to APE tags, which aren't used by MPD. 
-But apparently mp3gain has issues corrupting ID3 data if you write 
-directly to ID3 tags, and will just crash and abort if it runs into an 
-error instead of continuing onward.
+Performs mp3gain analysis and writes to id3 tags. The MP3Gain utility apparently writes by default to APE tags, which aren't used by MPD. While `mp3gain` no longer has issues corrupting ID3 data if you write directly to ID3 tags, it will crash and abort if it runs into an error instead of continuing onward. That and the options are a pain, so this helps.
 
-Accepts only one command line argument (optional) giving the directory 
-to analyze. Otherwise analyzes the current directory *and all 
-subdirectories*.
+Accepts only one command line argument (optional) giving the directory to analyze. Otherwise analyzes the current directory *and all subdirectories*.
 
 Dependencies: 
 * [mp3gain](http://mp3gain.sourceforge.net/)
@@ -201,9 +199,3 @@ One or more of the following:
 This script uses the MPRIS interface to control your media players.  
 Currently supported players include MPD, Pithos, Audacious, and Clementine
 
-# mp3-date-to-year.sh
-
- * [eye3D](http://eyed3.nicfit.net/)
-
- A simple script to will only change the date fields (release date, original 
- release date, recording date) to *just* the year field if they exist.
