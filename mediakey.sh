@@ -66,11 +66,9 @@ case "$1" in
     # Play/pause
     [Pp]*)
         while IFS= read -r player; do
-            echo "${player}" >> /home/steven/test.txt
             if [[ "$player" =~ "mpd" ]];then
                 # creating play/pause functionality
                 mpdcheck=$(mpc | tail -2 | head -1 | awk '{print $1}')
-                echo "a ${mpdcheck}"  >> /home/steven/test.txt
                 if [[ "${mpdcheck}" =~ "[playing]" ]];then
                     qdbus org.mpris.MediaPlayer2.mpd /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Pause
                 else
