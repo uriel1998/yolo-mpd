@@ -88,13 +88,13 @@ if [ "$StreamLink" != "0" ];then
             URL=$(/usr/bin/grep -m 1 -e "^File.*" "${TempFile}" | awk -F '=' '{print $2}')
             if [ -z $URL ];then
                 # find matches with ^http.*mp3$ in m3u files
-                URL=$(/usr/bin/grep -m 1 -e "^http.*mp3$" "${TempFile}")
+                URL=$(/usr/bin/grep -m 1 -e "^http.*mp3??*" "${TempFile}")
                 if [ -z $URL ];then
                     # find matches with ^http.*ogg$ in m3u files
-                    URL=$(/usr/bin/grep -m 1 -e "^http.*ogg$" "${TempFile}")
+                    URL=$(/usr/bin/grep -m 1 -e "^http.*ogg??*" "${TempFile}")
                     if [ -z $URL ];then
                         # find matches with ^http.*aac$ in m3u files
-                        URL=$(/usr/bin/grep -m 1 -e "^http.*aac$" "${TempFile}")
+                        URL=$(/usr/bin/grep -m 1 -e "^http.*aac??*" "${TempFile}")
                     fi
                 fi
             fi
