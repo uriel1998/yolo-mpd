@@ -209,4 +209,6 @@ create a popup with the albumart and trackname of the currently playing song fro
 
 It assumes your music directory is in `${HOME}/Music`, that your album art is 
 named either `cover.jpg` or `folder.jpg` and that `mpc` is already 
-set up correctly. 
+set up correctly. The window will auto-close after 10 seconds.
+
+![output](https://github.com/uriel1998/yolo-mpd/raw/master/yad_show_mpd.png "What it looks like")
