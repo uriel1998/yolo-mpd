@@ -18,10 +18,11 @@ MPD_MUSIC_BASE="${HOME}/Music"
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 DEFAULT_COVER="${SCRIPT_DIR}/defaultcover.jpg"
 
-if [ "$1" == "--loud" ];then
-    LOUD=1
-else
-    LOUD=0
+# checking if MPD_HOST is set or exists in .bashrc
+# if neither is set, will just go with defaults (which will fail if 
+# password is set.) 
+if [ "$MPD_HOST" == "" ];then
+    export MPD_HOST=$(cat ${HOME}/.bashrc | grep MPD_HOST | awk -F '=' '{print $2}')
 fi
 
 # checking to see if currently playing/paused, otherwise exiting.
@@ -87,3 +88,5 @@ get_song_info
 prep_cover
 
 yad --window-icon=musique --always-print-result --on-top --skip-taskbar --image-on-top --borders=5 --title "$SONGSTRING" --text-align=center --image "$YADSHOW_CACHE"/nowplaying.album.jpg --timeout=10 --no-buttons
+
+read

@@ -211,4 +211,10 @@ It assumes your music directory is in `${HOME}/Music`, that your album art is
 named either `cover.jpg` or `folder.jpg` and that `mpc` is already 
 set up correctly. The window will auto-close after 10 seconds.
 
+It will attempt to use the environment variable `MPD_HOST`, and 
+if it is not found, will examine ${HOME}/.bashrc to see if it is set there (if a 
+non-login shell) and set it for the program. If you have a password set for MPD, 
+you *must* use `MPD_HOST=Password@host` for it to work.
+
+
 ![output](https://github.com/uriel1998/yolo-mpd/raw/master/yad_show_mpd.png "What it looks like")
