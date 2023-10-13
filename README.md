@@ -26,7 +26,7 @@ Various MP3 and MPD tweaks, tips, tools, and scripts I've put together or found 
 
   11. [mediakey.sh](mediakey.sh)
 
-      
+  12. [yad_show_mpd.sh](yad_show_mpd.sh)
 
 
 # stream_to_mpd  
@@ -199,3 +199,14 @@ One or more of the following:
 This script uses the MPRIS interface to control your media players.  
 Currently supported players include MPD, Pithos, Audacious, and Clementine
 
+# yad_show_mpd.sh
+
+This script -- which should also have an image file named `defaultcover.jpg` in 
+its directory -- requires [mpc](http://git.musicpd.org/cgit/master/mpc.git/), 
+[imagemagick](https://imagemagick.org/), and [YAD](https://sourceforge.net/projects/yad-dialog/) to 
+create a popup with the albumart and trackname of the currently playing song from 
+[MPD, the music player daemon](https://www.musicpd.org/).
+
+It assumes your music directory is in `${HOME}/Music`, that your album art is 
+named either `cover.jpg` or `folder.jpg` and that `mpc` is already 
+set up correctly. 

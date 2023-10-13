@@ -69,7 +69,11 @@ function prep_cover(){
     if [ "$COVERFILE" == "" ];then
         COVERFILE=${DEFAULT_COVER}
     fi
-    echo "${COVERFILE}"
+    if [ "$COVERFILE" == "" ];then
+        loud "No cover or default cover found."
+        exit 99
+    fi
+    
     convert "${COVERFILE}" -resize "600x600" "${YADSHOW_CACHE}/nowplaying.album.jpg"
 }
 
