@@ -24,6 +24,15 @@ else
     LOUD=0
 fi
 
+# checking to see if currently playing/paused, otherwise exiting.
+
+status=$(mpc | grep -c -e "\[")
+if [ $status -lt 1 ];then
+    echo "Not playing or paused"
+    exit 88
+fi
+
+
 ##############################################################################
 # Create our cache
 ##############################################################################
@@ -34,7 +43,7 @@ fi
 
 YADSHOW_CACHE="${XDG_CACHE_HOME}/yadshow"
 if [ ! -d "${YADSHOW_CACHE}" ];then
-    loud "Making cache directory"
+    echo "Making cache directory"
     mkdir -p "${YADSHOW_CACHE}"
 fi
 
@@ -42,25 +51,17 @@ fi
 # functions
 ##############################################################################
 
-function loud() {
-    if [ $LOUD -eq 1 ];then
-        echo "$@"
-    fi
-}
 
 function get_song_info(){
     SONGFILE="${MPD_MUSIC_BASE}"/$(mpc current --format %file%)
-    echo "$SONGFILE"
     SONGDIR=$(dirname "$(readlink -f "$SONGFILE")")
     SONGSTRING=$(mpc current --format "%artist% - %title% - %album%")
 }
 
 function prep_cover(){
-    loud "$SONGDIR"
     if [ -f "$SONGDIR"/folder.jpg ];then
         COVERFILE="$SONGDIR"/folder.jpg
     else
-        loud "Not folder.jpg"
         if [ -f "$SONGDIR"/cover.jpg ];then
             COVERFILE="$SONGDIR"/cover.jpg
         fi
@@ -70,7 +71,7 @@ function prep_cover(){
         COVERFILE=${DEFAULT_COVER}
     fi
     if [ "$COVERFILE" == "" ];then
-        loud "No cover or default cover found."
+        echo "No cover or default cover found."
         exit 99
     fi
     
