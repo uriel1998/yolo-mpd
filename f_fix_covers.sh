@@ -16,7 +16,7 @@
 # safety mode (report changes, do not do them.)
 
 
-AUTOEMBED=""
+AUTOEMBED=0
 TMPDIR=$(mktemp -d)
 startdir="$PWD"
 dirlist=$(mktemp)
@@ -172,6 +172,7 @@ function show_compare_images () {
     # returns the chosen image filename
     # do make sure to quote variables coming into this!
 
+    rm -rf "${TMPDIR}/*FOUND.jpeg"
     loud "Preparing to show images"
     
     show_list=$(mktemp)
@@ -201,19 +202,21 @@ function show_compare_images () {
     done < "${show_list}"
     echo "${buttonstring}"
     echo "${TMPDIR}/out_montage.jpg"
-    evalstring=$(printf "yad --window-icon=musique --always-print-result --on-top --skip-taskbar --image-on-top --borders=5 --title \"Choose the appropriate image\" --text-align=center --image \"%s\" -button=\"None:99\" %s" "${TMPDIR}/out_montage.jpg" "${buttonstring}")
+    evalstring=$(printf "yad --window-icon=musique --always-print-result --on-top --skip-taskbar --image-on-top --borders=5 --title \"Choose the appropriate image\" --text-align=center --image \"%s\" --button=\"None:99\" %s" "${TMPDIR}/out_montage.jpg" "${buttonstring}")
     
     eval ${evalstring}
-    echo "$?"
-    IFS=$(echo -en "\n\b")
-    exit
+    result=$(echo "$?")
+    if [ $result -eq 99 ];then
+        loud "No cover chosen."
+    else
+        # return the filename of the chosen cover.
+        sed "${result}!d" ${show_list}
+        IFS=$(echo -en "\n\b")
+    fi
     
-
-    result=$(eval $(printf "zenity  --title \"Choose which image to use\" --list --radiolist --column \"choose\" --column \"File\" FALSE Search TRUE Abort %s" "$single_line_list"))
-    #return this
-    echo "$result"
-    exit
-    rm $show_list
+    #clean up after ourselves.
+    rm "${show_list}"    
+    
 }
     
 
@@ -357,19 +360,20 @@ function directory_check () {
                     fi
                 done < "${songlist}"
                 
-                if [ $FOUND_COVERS -gt 1 ];then
-                    find ${TMPDIR} -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g'
-                    
-                    show_compare_images "$(find ${TMPDIR} -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g')"
+                # If one cover, only checks if AUTO is not on. 
+                if [ $AUTOEMBED -eq 1 ] && [ $FOUND_COVERS -eq 1 ];then
+                    canon_cover="${TMPDIR}/1FOUND_COVER.jpeg"
+                else
+                    if [ $FOUND_COVERS -gt 0 ];then
+                        find ${TMPDIR} -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g'
+                        canon_cover=$(show_compare_images "$(find ${TMPDIR} -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g')")
+                    fi
                 fi
-                exit
-                # Oh, if this works, this will be clever!  :) echo ${string// /\\ }
-                # should feed all of the found embedded covers -- even if just one, in case it's wrong!
-                canon_cover=$(show_compare_images $(find ${TMPDIR} -name '*FOUND_COVER.jpeg' -printf '"%p" '))
                 if [ ! -f "${canon_cover}" ];then 
                     cleanup
                     canon_cover=search_for_cover
                 fi
+                exit
             else
                 # compare the two cover images!
                 canon_cover=$(show_compare_images "${SONGDIR}/cover.jpg" "${SONGDIR}/folder.jpg")
@@ -400,7 +404,7 @@ function directory_check () {
         -h|--help) display_help
             exit
             shift ;;      
-        -a|--autoembed) AUTOEMBED="True"
+        -a|--autoembed) AUTOEMBED=1
             shift ;;
         -s|--safe) SAFETY="TRUE"
             shift ;;      
