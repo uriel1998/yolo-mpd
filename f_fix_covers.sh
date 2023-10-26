@@ -172,9 +172,7 @@ function show_compare_images () {
     # returns the chosen image filename
     # do make sure to quote variables coming into this!
 
-    rm -rf "${TMPDIR}/*FOUND.jpeg"
-    loud "Preparing to show images"
-    
+    rm -rf "${TMPDIR}/*FOUND.jpeg"    
     show_list=$(mktemp)
     echo "${@}" > "${show_list}"
     # Note -- this was set at the beginning of the script. Leaving this here 
@@ -188,7 +186,7 @@ function show_compare_images () {
     
     single_line_list=$(cat $show_list | tr '\n' ' ' )
     
-    IFS=$SAVEIFS
+    #IFS=$SAVEIFS
     buttonstring=""
     i=1
     while read line; do
@@ -201,15 +199,13 @@ function show_compare_images () {
     eval ${evalstring}
     result=$(echo "$?")
     if [ $result -eq 99 ];then
-        loud "No cover chosen."
+        echo ""
     else
-        sed "${result}!d" ${show_list}
         # return the filename of the chosen cover.
-        outstring=$(sed "${result}!d" ${show_list})
+        outstring=$(realpath $(sed "${result}!d" ${show_list}))
         echo "${outstring}"
-        IFS=$(echo -en "\n\b")
     fi
-    
+    #IFS=$(echo -en "\n\b")
     #clean up after ourselves, don't delete the found ones yet tho.
     rm "${show_list}"    
     
@@ -365,16 +361,12 @@ function directory_check () {
                         canon_cover=$(show_compare_images "$(find ${TMPDIR} -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g')")
                     fi
                 fi
-                echo "${canon_cover}"
-                
-                if [[ -f "${canon_cover}" ]];then 
-                    echo "THE FUCK"
-                    exit
+                canon_cover=$(trim "${canon_cover}")
+                /usr/bin/ls "${canon_cover}"
+                if [[ ! -s "${canon_cover}" ]];then 
                     cleanup
                     canon_cover=$(search_for_cover)
                 fi
-                
-                exit
             else
                 # compare the two cover images!
                 canon_cover=$(show_compare_images "${SONGDIR}/cover.jpg" "${SONGDIR}/folder.jpg")
