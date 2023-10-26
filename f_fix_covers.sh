@@ -192,6 +192,8 @@ function show_compare_images () {
     
     # THIS DID NOT WORK.  Also, it sucks not having the images on screen. 
     # So instead, have imagemagick write on each one with a number identifier, maaybe?
+    # OH HELL, have imagemagick combine them into a montage with a number, then
+    # display with YAD you doofus.
     
     result=$(eval $(printf "zenity  --title \"Choose which image to use\" --list --radiolist --column \"choose\" --column \"File\" FALSE Search TRUE Abort %s" "$single_line_list"))
     #return this
