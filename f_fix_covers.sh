@@ -185,13 +185,18 @@ function show_compare_images () {
     feh --montage --thumb-width 200 --thumb-height 200 --stretch --draw-filename --filelist $show_list
     
     #Which of the images should be canonical?
-    single_line_list=$(cat $show_list | tr '\n' '\" \"' )
-    single_line_list=$(echo "\"${single_line_list}\"")
+    # These filenames should be properly escaped
+    single_line_list=$(cat $show_list | tr '\n' ' ' )
     echo "${single_line_list}"
-    exit
+    
+    
+    # THIS DID NOT WORK.  Also, it sucks not having the images on screen. 
+    # So instead, have imagemagick write on each one with a number identifier, maaybe?
+    
     result=$(eval $(printf "zenity  --title \"Choose which image to use\" --list --radiolist --column \"choose\" --column \"File\" FALSE Search TRUE Abort %s" "$single_line_list"))
     #return this
     echo "$result"
+    exit
     rm $show_list
 }
     
