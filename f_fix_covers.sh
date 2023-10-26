@@ -71,19 +71,23 @@ trim() {
 
         
 function extract_cover () {
+
     
     SONGFILE="${1}"
+    SONGDIR="${2}"
+    
+    loud "Extracting cover from ${SONGFILE}"
     
     eyeD3 --write-images="$TMPDIR" "$SONGFILE" 1> /dev/null
     if [ -f "$TMPDIR/FRONT_COVER.png" ]; then
-        echo "### Converting PNG into JPG"
+        loud "### Converting PNG into JPG"
         convert "$TMPDIR/FRONT_COVER.png" "$TMPDIR/FRONT_COVER.jpeg"
     fi
     # Catching when it's sometimes stored as "Other" tag instead of FRONT_COVER
     # but only when FRONT_COVER doesn't exist.
     if [ ! -f "$TMPDIR/FRONT_COVER.jpeg" ]; then
         if [ -f "$TMPDIR/OTHER.png" ]; then
-            echo "converting PNG into JPG"
+            loud "### Converting PNG into JPG"
             convert "$TMPDIR/OTHER.png" "$TMPDIR/OTHER.jpeg"
         fi
         if [ -f "$TMPDIR/OTHER.jpg" ]; then
@@ -97,12 +101,11 @@ function extract_cover () {
         fi            
     fi  
     if [ -f "$TMPDIR/FRONT_COVER.jpeg" ]; then
-        echo "### Cover art retrieved from MP3 ID3 tags!"
-        echo "### Cover art being copied to music directory!"
-        echo "${fullpath}/cover.jpg"
-        cp "$TMPDIR/FRONT_COVER.jpeg" "${fullpath}/cover.jpg"
-        cp "$TMPDIR/FRONT_COVER.jpeg" "${fullpath}/folder.jpg"
-            
+        loud "### Cover art retrieved from MP3 ID3 tags!"
+        loud "### Cover art being copied to music directory!"
+        echo "${SONGDIR}/cover.jpg"
+        #cp "$TMPDIR/FRONT_COVER.jpeg" "${SONGDIR}/cover.jpg"
+        #cp "$TMPDIR/FRONT_COVER.jpeg" "${SONGDIR}/folder.jpg"
     fi
 }
 
@@ -168,24 +171,24 @@ function show_compare_images () {
     # The images are ALREADY compared and unequal; we are just comparing them!
     # returns the chosen image filename
     # do make sure to quote variables coming into this!
+
+    echo "HI"
     
     show_list=$(mktemp)
-    num_images=$#
+    echo "${@}" > "${show_list}"
     # Note -- this was set at the beginning of the script. Leaving this here 
     # as a warning to myself if I try to pull this out and forget. :)
     # IFS=$(echo -en "\n\b")
-    
-    for i in $@; do
-        if [ -f ${i} ];then #automatically trims out empties
-            printf "%s\n" ${i} >> $show_list
-        fi
-    done
+    cat "$show_list"
     
     # set up layout? 
     feh --montage --thumb-width 200 --thumb-height 200 --stretch --draw-filename --filelist $show_list
     
     #Which of the images should be canonical?
-    single_line_list=$(cat $show_list | tr '\n' ' ' )
+    single_line_list=$(cat $show_list | tr '\n' '\" \"' )
+    single_line_list=$(echo "\"${single_line_list}\"")
+    echo "${single_line_list}"
+    exit
     result=$(eval $(printf "zenity  --title \"Choose which image to use\" --list --radiolist --column \"choose\" --column \"File\" FALSE Search TRUE Abort %s" "$single_line_list"))
     #return this
     echo "$result"
@@ -228,14 +231,14 @@ mp3_check () {
 
         # is there cover art in the directory?
         if [ -f ${SONGDIR}/cover.jpg ]; then
-            CA_File_Cover=$(shasum ${SONGDIR}/cover.jpg | awk '{print $1}')
+            CA_File_Cover=$(shasum "${SONGDIR}/cover.jpg" | awk '{print $1}')
         fi
         if [ -f ${SONGDIR}/folder.jpg ]; then
-            CA_File_Folder=$(shasum ${SONGDIR}/cover.jpg | awk '{print $1}')
+            CA_File_Folder=$(shasum "${SONGDIR}/folder.jpg" | awk '{print $1}')
         fi
         # extract the MP3 cover, if present.
         if [ CA_Embedded -eq 1 ];then
-            extract_cover "${SONGFILE}"
+            extract_cover "${SONGFILE}" "${SONGDIR}"
             if [ -f "${TMPDIR}/FRONT_COVER.jpeg" ]; then
                 CA_Embedded=$(shasum "${TMPDIR}/FRONT_COVER.jpeg" | awk '{print $1}')
             fi
@@ -245,7 +248,7 @@ mp3_check () {
         # any one of three not match, choose canon cover, go from there.
         
         # All three match
-        if [ $CA_File_Folder = $CA_File_Cover ] && [ CA_Embedded = $CA_File_Cover ];then
+        if [[ "$CA_File_Folder" == "$CA_File_Cover" ]] && [[ "$CA_Embedded" == "$CA_File_Cover" ]];then
             echo "Everything matches!"
         else
             canon_cover=$(show_compare_images "${SONGDIR}/cover.jpg" "${SONGDIR}/folder.jpg" "$TMPDIR/FRONT_COVER.jpeg")
@@ -284,7 +287,6 @@ function directory_check () {
     find "${MusicDir}" -name '*.mp3' -printf '%h\n' | sort -u | xargs -I {} realpath {} > "${dirlist}"
     CURRENTENTRY="0"
     ENTRIES=$(cat ${dirlist} | wc -l)
-
     while read line
     do
         cleanup
@@ -292,26 +294,29 @@ function directory_check () {
         ALBUMARTIST=""
         SONGFILE=""
         SONGDIR=""
-        SONGDIR=$(dirname $(realpath ${line}))
-    
+        SONGDIR=$(realpath ${line})
         CURRENTENTRY=$(($CURRENTENTRY+1))
-        echo "$CURRENTENTRY of $ENTRIES $dir"
-            
+        echo "$CURRENTENTRY of $ENTRIES ${SONGDIR}"
+        CA_File_Cover=""
+        CA_File_Folder=""
+        CA_File_Embedded=""
+        
         ####################################################################
         # Do cover files exist? If so, make sure both cover and folder exist.
         ####################################################################        
-        if [ -f ${SONGDIR}/cover.jpg ]; then
-            CA_File_Cover=$(shasum ${SONGDIR}/cover.jpg | awk '{print $1}')
+        if [ -f "${SONGDIR}/cover.jpg" ]; then
+            CA_File_Cover=$(shasum "${SONGDIR}/cover.jpg" | awk '{print $1}')
         fi
-        if [ -f ${SONGDIR}/folder.jpg ]; then
-            CA_File_Folder=$(shasum ${SONGDIR}/cover.jpg | awk '{print $1}')
+        if [ -f "${SONGDIR}/folder.jpg" ]; then
+            CA_File_Folder=$(shasum "${SONGDIR}/folder.jpg" | awk '{print $1}')
         fi
-        if [ $CA_File_Folder = $CA_File_Cover ] && [ $CA_File_Folder != "" ];then
-            echo "Everything matches!"
+        if [[ "$CA_File_Folder" = "$CA_File_Cover" ]] && [[ "$CA_File_Folder" != "" ]];then
+            loud "Both cover and folder jpg match!"
         else
             # If there are NO images in the directory, find embedded ones from all 
             # MP3s, compare them, and go from there.
-            if [ $CA_File_Folder != "" ] && [ $CA_File_Cover != "" ];then
+            if [[ "$CA_File_Folder" == "" ]] && [[ "$CA_File_Cover" == "" ]];then
+                loud "No cover files found; examining MP3s in directory."
                 find "${SONGDIR}" -name '*.mp3' -printf '%p\n' | xargs -I {} realpath {} > "${songlist}"
                 cleanup
                 # Get all embedded front covers
@@ -322,16 +327,23 @@ function directory_check () {
                     # big long grep string to avoid all the possible frakups I found, lol
                     CA_Embedded=$(echo "$songdata" | grep Cover | grep -c "front")
                     if [ $CA_Embedded -gt 0 ];then
-                        extract_cover "${SONGFILE}"
+                        extract_cover "${SONGFILE}" "${SONGDIR}"
                         if [ -f "${TMPDIR}/FRONT_COVER.jpeg" ];then 
                             FOUND_COVERS=$((FOUND_COVERS + 1))
+                            loud "Found ${FOUND_COVERS} covers so far!"
                             mv "${TMPDIR}/FRONT_COVER.jpeg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"                    
                         fi
                     fi
                 done < "${songlist}"
-                # Oh, if this works, this will be clever!  :) 
+                
+                if [ $FOUND_COVERS -gt 1 ];then
+                    bob=$(find ${TMPDIR} -name '*FOUND_COVER.jpeg' | sed 's@\ @\\ @g')
+                    show_compare_images "${bob}"
+                fi
+                exit
+                # Oh, if this works, this will be clever!  :) echo ${string// /\\ }
                 # should feed all of the found embedded covers -- even if just one, in case it's wrong!
-                canon_cover=$(show_compare_images (find ${TMPDIR} -name '*FOUND_COVER.jpeg' -printf '"%p" '))
+                canon_cover=$(show_compare_images $(find ${TMPDIR} -name '*FOUND_COVER.jpeg' -printf '"%p" '))
                 if [ ! -f "${canon_cover}" ];then 
                     cleanup
                     canon_cover=search_for_cover
@@ -395,15 +407,14 @@ fi
 
 loud "Using ${MusicDir}"
 
-exit
-
-# switch for directory check or individual mp3 check
 SAVEIFS=$IFS
 IFS=$(echo -en "\n\b")
 if [ "$MODE" == "DIR" ];then
+    loud "Checking files in directory."
     directory_check
 fi
 if [ "$MODE" == "FILE" ];then
+    loud "Checking all MP3s and files in directory."
     mp3_check
 fi
 IFS=$SAVEIFS
