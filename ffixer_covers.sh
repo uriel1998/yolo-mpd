@@ -1,5 +1,7 @@
 #!/bin/bash
 
+
+
 TMPDIR=$(mktemp -d)
 startdir="$PWD"
 dirlist=$(mktemp)
