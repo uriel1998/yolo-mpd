@@ -75,7 +75,7 @@ function extract_cover () {
     
     SONGFILE="${1}"
     SONGDIR="${2}"
-    
+    cleanup
     loud "Extracting cover from ${SONGFILE}"
     
     eyeD3 --write-images="$TMPDIR" "$SONGFILE" 1> /dev/null
@@ -172,7 +172,7 @@ function show_compare_images () {
     # returns the chosen image filename
     # do make sure to quote variables coming into this!
 
-    echo "HI"
+    loud "Preparing to show images"
     
     show_list=$(mktemp)
     echo "${@}" > "${show_list}"
@@ -337,8 +337,9 @@ function directory_check () {
                 done < "${songlist}"
                 
                 if [ $FOUND_COVERS -gt 1 ];then
-                    bob=$(find ${TMPDIR} -name '*FOUND_COVER.jpeg' | sed 's@\ @\\ @g')
-                    show_compare_images "${bob}"
+                    find ${TMPDIR} -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g'
+                    
+                    show_compare_images "$(find ${TMPDIR} -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g')"
                 fi
                 exit
                 # Oh, if this works, this will be clever!  :) echo ${string// /\\ }
