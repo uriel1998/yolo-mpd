@@ -178,23 +178,37 @@ function show_compare_images () {
     echo "${@}" > "${show_list}"
     # Note -- this was set at the beginning of the script. Leaving this here 
     # as a warning to myself if I try to pull this out and forget. :)
-    # IFS=$(echo -en "\n\b")
+    
+    
     cat "$show_list"
     
     # set up layout? 
-    feh --montage --thumb-width 200 --thumb-height 200 --stretch --draw-filename --filelist $show_list
+    feh --preload --fullindex --thumb-width 200 --thumb-height 200 --stretch --draw-filename --filelist $show_list --output-only "${TMPDIR}/out_montage.jpg"
     
     #Which of the images should be canonical?
     # These filenames should be properly escaped
+    
     single_line_list=$(cat $show_list | tr '\n' ' ' )
     echo "${single_line_list}"
     
+    IFS=$SAVEIFS
+    buttonstring=""
+    i=1
+    while read line; do
+        tempstring=$(basename ${line})
+        buttonstring=$(echo ${buttonstring} --button="${tempstring}:${i}")
+        i=$((i+1))
+    done < "${show_list}"
+    echo "${buttonstring}"
+    echo "${TMPDIR}/out_montage.jpg"
+    evalstring=$(printf "yad --window-icon=musique --always-print-result --on-top --skip-taskbar --image-on-top --borders=5 --title \"Choose the appropriate image\" --text-align=center --image \"%s\" -button=\"None:99\" %s" "${TMPDIR}/out_montage.jpg" "${buttonstring}")
     
-    # THIS DID NOT WORK.  Also, it sucks not having the images on screen. 
-    # So instead, have imagemagick write on each one with a number identifier, maaybe?
-    # OH HELL, have imagemagick combine them into a montage with a number, then
-    # display with YAD you doofus.
+    eval ${evalstring}
+    echo "$?"
+    IFS=$(echo -en "\n\b")
+    exit
     
+
     result=$(eval $(printf "zenity  --title \"Choose which image to use\" --list --radiolist --column \"choose\" --column \"File\" FALSE Search TRUE Abort %s" "$single_line_list"))
     #return this
     echo "$result"
