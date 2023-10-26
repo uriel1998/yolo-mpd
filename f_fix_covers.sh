@@ -27,48 +27,23 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 #SAFETY=""
 SAFETY="True"
 MODE="DIR"
+LOUD=1
 
-    while [ $# -gt 0 ]; do
-    option="$1"
-        case $option in
-        -h|--help) display_help
-            exit
-            shift ;;      
-        -a|--autoembed) AUTOEMBED="True"
-            shift ;;
-        -s|--safe) SAFETY="TRUE"
-            shift ;;      
-        -f|--file) MODE="FILE"
-            shift ;;      
-        -d|--dir) 
-            shift 
-            if [ -d "${1}" ];then
-                MusicDir="${1}"
-            fi
-            shift;;      
-        *)  if [ -d "${1}" ];then
-                MusicDir="${1}"
-            fi
-            shift;;
-        esac
-    done    
-
-
-if [ ! d "$MusicDir" ]; then 
-    echo "No music directory specified."
-    exit 99
-    #MusicDir="$HOME/music"; 
-fi
-
+function loud() {
+    if [ $LOUD -eq 1 ];then
+        echo "$@"
+    fi
+}
 
 function display_help {
     echo "f_fix_covers.sh [Music Directory]"
     echo " "
-    echo "-h|--help : This."
-    echo "-a|--autoembed : Do operations without asking user. Don't use this."
-    echo "-s|--safe : Just say what it would do, do not actually do operations."
-    echo "-f|--file : Examine *every* MP3 individually instead of images in the file folder."
-    echo "-d|--dir [MUSIC DIRECTORY] : Specify the music directory to scan."
+    echo "-h|--help         : This."
+    echo "-a|--autoembed    : Do operations without asking user. Don't use this."
+    echo "-s|--safe         : Just say what it would do, do not actually do operations."
+    echo "-q|--quiet        : Minimal output."    
+    echo "-f|--file         : Examine *every* MP3 individually instead of images in the file folder."
+    echo "-d|--dir [DIR]    : Specify the music directory to scan."
 }
 
 function cleanup {
@@ -270,7 +245,7 @@ mp3_check () {
         # any one of three not match, choose canon cover, go from there.
         
         # All three match
-        if [ $CA_File_Folder = $CA_File_Cover ] && [CA_Embedded = $CA_File_Cover ];then
+        if [ $CA_File_Folder = $CA_File_Cover ] && [ CA_Embedded = $CA_File_Cover ];then
             echo "Everything matches!"
         else
             canon_cover=$(show_compare_images "${SONGDIR}/cover.jpg" "${SONGDIR}/folder.jpg" "$TMPDIR/FRONT_COVER.jpeg")
@@ -385,6 +360,42 @@ function directory_check () {
     done < "$dirlist"
 }
 
+    while [ $# -gt 0 ]; do
+    option="$1"
+        case $option in
+        -h|--help) display_help
+            exit
+            shift ;;      
+        -a|--autoembed) AUTOEMBED="True"
+            shift ;;
+        -s|--safe) SAFETY="TRUE"
+            shift ;;      
+        -f|--file) MODE="FILE"
+            shift ;;      
+        -q|--quiet) LOUD="0"
+            shift ;;                  
+        -d|--dir) 
+            shift 
+            if [ -d "${1}" ];then
+                MusicDir="${1}"
+            fi
+            shift;;      
+        *)  if [ -d "${1}" ];then
+                MusicDir="${1}"
+            fi
+            shift;;
+        esac
+    done    
+
+if [ ! -d "$MusicDir" ]; then 
+    echo "No music directory specified."
+    exit 99
+    #MusicDir="$HOME/music"; 
+fi
+
+loud "Using ${MusicDir}"
+
+exit
 
 # switch for directory check or individual mp3 check
 SAVEIFS=$IFS
