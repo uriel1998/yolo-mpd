@@ -180,9 +180,6 @@ function show_compare_images () {
     # Note -- this was set at the beginning of the script. Leaving this here 
     # as a warning to myself if I try to pull this out and forget. :)
     
-    
-    cat "$show_list"
-    
     # set up layout? 
     feh --preload --fullindex --thumb-width 200 --thumb-height 200 --stretch --draw-filename --filelist $show_list --output-only "${TMPDIR}/out_montage.jpg"
     
@@ -190,7 +187,6 @@ function show_compare_images () {
     # These filenames should be properly escaped
     
     single_line_list=$(cat $show_list | tr '\n' ' ' )
-    echo "${single_line_list}"
     
     IFS=$SAVEIFS
     buttonstring=""
@@ -200,8 +196,6 @@ function show_compare_images () {
         buttonstring=$(echo ${buttonstring} --button="${tempstring}:${i}")
         i=$((i+1))
     done < "${show_list}"
-    echo "${buttonstring}"
-    echo "${TMPDIR}/out_montage.jpg"
     evalstring=$(printf "yad --window-icon=musique --always-print-result --on-top --skip-taskbar --image-on-top --borders=5 --title \"Choose the appropriate image\" --text-align=center --image \"%s\" --button=\"None:99\" %s" "${TMPDIR}/out_montage.jpg" "${buttonstring}")
     
     eval ${evalstring}
@@ -209,12 +203,14 @@ function show_compare_images () {
     if [ $result -eq 99 ];then
         loud "No cover chosen."
     else
-        # return the filename of the chosen cover.
         sed "${result}!d" ${show_list}
+        # return the filename of the chosen cover.
+        outstring=$(sed "${result}!d" ${show_list})
+        echo "${outstring}"
         IFS=$(echo -en "\n\b")
     fi
     
-    #clean up after ourselves.
+    #clean up after ourselves, don't delete the found ones yet tho.
     rm "${show_list}"    
     
 }
@@ -365,14 +361,19 @@ function directory_check () {
                     canon_cover="${TMPDIR}/1FOUND_COVER.jpeg"
                 else
                     if [ $FOUND_COVERS -gt 0 ];then
-                        find ${TMPDIR} -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g'
+                        #find ${TMPDIR} -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g'
                         canon_cover=$(show_compare_images "$(find ${TMPDIR} -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g')")
                     fi
                 fi
-                if [ ! -f "${canon_cover}" ];then 
+                echo "${canon_cover}"
+                
+                if [[ -f "${canon_cover}" ]];then 
+                    echo "THE FUCK"
+                    exit
                     cleanup
-                    canon_cover=search_for_cover
+                    canon_cover=$(search_for_cover)
                 fi
+                
                 exit
             else
                 # compare the two cover images!
