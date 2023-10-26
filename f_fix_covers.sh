@@ -13,9 +13,7 @@
 ##############################################################################
 
 # TODO: start testing, lol.
-# help section
-# more cli options to specify things
-# safety mode (report changes, do not do them.
+# safety mode (report changes, do not do them.)
 
 
 AUTOEMBED=""
@@ -23,15 +21,55 @@ TMPDIR=$(mktemp -d)
 startdir="$PWD"
 dirlist=$(mktemp)
 songlist=$(mktemp)
-MusicDir="${HOME}/Music"
+MusicDir=""
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-SAFETY=True
+# Change back after testing.
+#SAFETY=""
+SAFETY="True"
+MODE="DIR"
+
+    while [ $# -gt 0 ]; do
+    option="$1"
+        case $option in
+        -h|--help) display_help
+            exit
+            shift ;;      
+        -a|--autoembed) AUTOEMBED="True"
+            shift ;;
+        -s|--safe) SAFETY="TRUE"
+            shift ;;      
+        -f|--file) MODE="FILE"
+            shift ;;      
+        -d|--dir) 
+            shift 
+            if [ -d "${1}" ];then
+                MusicDir="${1}"
+            fi
+            shift;;      
+        *)  if [ -d "${1}" ];then
+                MusicDir="${1}"
+            fi
+            shift;;
+        esac
+    done    
 
 
-if [ "$1" == "--autoembed" ];then
-    AUTOEMBED="True"
+if [ ! d "$MusicDir" ]; then 
+    echo "No music directory specified."
+    exit 99
+    #MusicDir="$HOME/music"; 
 fi
 
+
+function display_help {
+    echo "f_fix_covers.sh [Music Directory]"
+    echo " "
+    echo "-h|--help : This."
+    echo "-a|--autoembed : Do operations without asking user. Don't use this."
+    echo "-s|--safe : Just say what it would do, do not actually do operations."
+    echo "-f|--file : Examine *every* MP3 individually instead of images in the file folder."
+    echo "-d|--dir [MUSIC DIRECTORY] : Specify the music directory to scan."
+}
 
 function cleanup {
     find "$TMPDIR/" -iname "OTHER*"  -exec rm -f {} \;
@@ -39,7 +77,6 @@ function cleanup {
     find "$TMPDIR/" -iname "cover*"  -exec rm -f {} \;    
     find "$TMPDIR/" -iname "ICON*"  -exec rm -f {} \;  
     find "$TMPDIR/" -iname "ILLUSTRATION*"  -exec rm -f {} \;  
-    
 }
 
 
@@ -58,22 +95,9 @@ trim() {
 }
 
         
-if [ ! d "$MusicDir" ]; then MusicDir="$HOME/music"; fi
-
-SAVEIFS=$IFS
-IFS=$(echo -en "\n\b")
-ENTRIES=$(find "${MusicDir}" -name '*.mp3' -printf '%h\n' | sort -u | grep -c / )
-CURRENTENTRY=1
-
-# This is split to avoid realpath choking on some UTF-8 directory names
-echo "Obtaining directory names"
-echo "Sorting and cleaning directory names"
-find "${MusicDir}" -name '*.mp3' -printf '%h\n' | sort -u | xargs -I {} realpath {} > "${dirlist}"
-echo "finding mp3 filenames"
-find "${MusicDir}" -name '*.mp3' -printf '%p\n' | xargs -I {} realpath {} > "${songlist}"
-
-
 function extract_cover () {
+    
+    SONGFILE="${1}"
     
     eyeD3 --write-images="$TMPDIR" "$SONGFILE" 1> /dev/null
     if [ -f "$TMPDIR/FRONT_COVER.png" ]; then
@@ -116,7 +140,6 @@ function search_for_cover (){
     ALBUM=$(echo "$songdata" | grep "album" | head -1 | awk -F ': ' '{for(i=2;i<=NF;++i)print $i}' | tr '\n' ' ')
     ARTIST=$(trim "$ARTIST")
     ALBUM=$(trim "$ALBUM")
-
 
     ##########################################################################
     # Attempt to get coverart from CoverArt Archive
@@ -196,6 +219,8 @@ function show_compare_images () {
     
 
 mp3_check () {
+    
+    find "${MusicDir}" -name '*.mp3' -printf '%p\n' | xargs -I {} realpath {} > "${songlist}"
     CURRENTENTRY="0"
     ENTRIES=$(cat ${songlist} | wc -l)
 
@@ -235,29 +260,10 @@ mp3_check () {
         fi
         # extract the MP3 cover, if present.
         if [ CA_Embedded -eq 1 ];then
-            eyeD3 --write-images="$TMPDIR" "$SONGFILE" 1> /dev/null
-            if [ -f "$TMPDIR/FRONT_COVER.png" ]; then
-                echo "### Converting PNG into JPG"
-                convert "$TMPDIR/FRONT_COVER.png" "$TMPDIR/FRONT_COVER.jpeg"
+            extract_cover "${SONGFILE}"
+            if [ -f "${TMPDIR}/FRONT_COVER.jpeg" ]; then
+                CA_Embedded=$(shasum "${TMPDIR}/FRONT_COVER.jpeg" | awk '{print $1}')
             fi
-            # Catching when it's sometimes stored as "Other" tag instead of FRONT_COVER
-            # but only when FRONT_COVER doesn't exist.
-            if [ ! -f "$TMPDIR/FRONT_COVER.jpeg" ]; then
-                if [ -f "$TMPDIR/OTHER.png" ]; then
-                    echo "### converting PNG into JPG"
-                    convert "$TMPDIR/OTHER.png" "$TMPDIR/OTHER.jpeg"
-                fi
-                if [ -f "$TMPDIR/OTHER.jpg" ]; then
-                    cp "$TMPDIR/OTHER.jpg" "$TMPDIR/OTHER.jpeg"
-                fi
-                if [ -f "$TMPDIR/OTHER.jpeg" ]; then
-                    cp "$TMPDIR/OTHER.jpeg" "$TMPDIR/FRONT_COVER.jpeg"
-                fi
-                if [ -f "$TMPDIR/FRONT_COVER.jpg" ]; then
-                    cp "$TMPDIR/FRONT_COVER.jpg" "$TMPDIR/FRONT_COVER.jpeg"
-                fi            
-            fi          
-            CA_Embedded=$(shasum "$TMPDIR/FRONT_COVER.jpeg" | awk '{print $1}')
         fi 
         
         # Compare cover files that are present.
@@ -298,8 +304,9 @@ mp3_check () {
 
 
 # This does NOT check the MP3 files *at all*.
-directory_check () {
+function directory_check () {
 
+    find "${MusicDir}" -name '*.mp3' -printf '%h\n' | sort -u | xargs -I {} realpath {} > "${dirlist}"
     CURRENTENTRY="0"
     ENTRIES=$(cat ${dirlist} | wc -l)
 
@@ -340,30 +347,12 @@ directory_check () {
                     # big long grep string to avoid all the possible frakups I found, lol
                     CA_Embedded=$(echo "$songdata" | grep Cover | grep -c "front")
                     if [ $CA_Embedded -gt 0 ];then
-                        eyeD3 --write-images="$TMPDIR" "$SONGFILE" 1> /dev/null
-                        if [ -f "$TMPDIR/FRONT_COVER.png" ]; then
-                            echo "### Converting PNG into JPG"
-                            convert "$TMPDIR/FRONT_COVER.png" "$TMPDIR/FRONT_COVER.jpeg"
+                        extract_cover "${SONGFILE}"
+                        if [ -f "${TMPDIR}/FRONT_COVER.jpeg" ];then 
+                            FOUND_COVERS=$((FOUND_COVERS + 1))
+                            mv "${TMPDIR}/FRONT_COVER.jpeg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"                    
                         fi
-                        # Catching when it's sometimes stored as "Other" tag instead of FRONT_COVER
-                        # but only when FRONT_COVER doesn't exist.
-                        if [ ! -f "$TMPDIR/FRONT_COVER.jpeg" ]; then
-                            if [ -f "$TMPDIR/OTHER.png" ]; then
-                                echo "### converting PNG into JPG"
-                                convert "$TMPDIR/OTHER.png" "$TMPDIR/OTHER.jpeg"
-                            fi
-                            if [ -f "$TMPDIR/OTHER.jpg" ]; then
-                                cp "$TMPDIR/OTHER.jpg" "$TMPDIR/OTHER.jpeg"
-                            fi
-                            if [ -f "$TMPDIR/OTHER.jpeg" ]; then
-                                cp "$TMPDIR/OTHER.jpeg" "$TMPDIR/FRONT_COVER.jpeg"
-                            fi
-                            if [ -f "$TMPDIR/FRONT_COVER.jpg" ]; then
-                                cp "$TMPDIR/FRONT_COVER.jpg" "$TMPDIR/FRONT_COVER.jpeg"
-                            fi            
-                        fi          
-                    FOUND_COVERS=$((FOUND_COVERS + 1))
-                    mv "${TMPDIR}/FRONT_COVER.jpeg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"                    
+                    fi
                 done < "${songlist}"
                 # Oh, if this works, this will be clever!  :) 
                 # should feed all of the found embedded covers -- even if just one, in case it's wrong!
@@ -398,8 +387,13 @@ directory_check () {
 
 
 # switch for directory check or individual mp3 check
-
-
+SAVEIFS=$IFS
+IFS=$(echo -en "\n\b")
+if [ "$MODE" == "DIR" ];then
+    directory_check
+fi
+if [ "$MODE" == "FILE" ];then
+    mp3_check
+fi
 IFS=$SAVEIFS
-
 cleanup_end
