@@ -344,7 +344,7 @@ function directory_check () {
         CA_File_Cover=""
         CA_File_Folder=""
         CA_File_Embedded=""
-        
+        canon_cover=""
         ####################################################################
         # Do cover files exist? If so, make sure both cover and folder exist.
         ####################################################################        
@@ -379,29 +379,21 @@ function directory_check () {
                         fi
                     fi
                 done < "${songlist}"
-                if [ $FOUND_COVERS -eq 0 ];then
-                    canon_cover=$(search_for_cover "${SONGDIR}")
-                fi
-                echo "${canon_cover}"
-                exit
-                # If one cover, only checks if AUTO is not on. 
-                if [ $AUTOEMBED -eq 1 ] && [ $FOUND_COVERS -eq 1 ];then
-                    canon_cover="${TMPDIR}/1FOUND_COVER.jpeg"
-                else
-                    if [ $FOUND_COVERS -gt 0 ];then
-                        #find ${TMPDIR} -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g'
-                        canon_cover=$(show_compare_images "$(find ${TMPDIR} -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g')")
+
+
+                if [ ! -s "${canon_cover}" ];then
+                    # If one cover, only checks if AUTO is not on. 
+                    if [ $AUTOEMBED -eq 1 ] && [ $FOUND_COVERS -eq 1 ];then
+                        canon_cover="${TMPDIR}/1FOUND_COVER.jpeg"
                     else
-                        canon_cover=$(search_for_cover "${SONGDIR}")
+                        if [ $FOUND_COVERS -gt 0 ];then
+                            #find ${TMPDIR} -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g'
+                            canon_cover=$(show_compare_images "$(find ${TMPDIR} -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g')")
+                        else
+                            # nothing found in MP3s or directory, search online.
+                            canon_cover=$(search_for_cover "${SONGDIR}")
+                        fi
                     fi
-                fi
-                echo "................${canon_cover}"
-                canon_cover=$(trim "${canon_cover}")
-                /usr/bin/ls "${canon_cover}"
-                echo "${canon_cover}"
-                if [[ ! -s "${canon_cover}" ]];then 
-                    cleanup
-                    canon_cover=$(search_for_cover "${SONGDIR}")
                 fi
             else
                 # compare the two cover images!
@@ -411,7 +403,7 @@ function directory_check () {
                 fi
                 if [ "${canon_cover}" == "SEARCH" ];then
                     cleanup
-                    canon_cover=$(search_for_cover  "${SONGDIR}")
+                    canon_cover=$(search_for_cover "${SONGDIR}")
                 fi
             fi
             if [ -f "${canon_cover}" ]; then # this will need to be specified when also testing for what was embedded cover
