@@ -468,10 +468,22 @@ SAVEIFS=$IFS
 IFS=$(echo -en "\n\b")
 if [ "$MODE" == "DIR" ];then
     loud "Checking files in directory."
+    # checks image files.
+    # does not check MP3s unless there's no image files.
+    # will extract from MP3s if available
+    # can embed into MP3s with AUTOEMBED
     directory_check
 fi
 if [ "$MODE" == "FILE" ];then
     loud "Checking all MP3s and files in directory."
+    # will automatically check MP3s
+    # maybe rework to be a big hodgepodge mix of stuff from dir section
+    # get the two covers, extract all the MP3 covers, 
+    # if tey ALL have the same checksum will it okay it
+    # if one checksum != then -- search
+    # if one missing, then -- search
+    # toss all searched, extracting, existant into the show_compare_covers
+    # then embed into all
     mp3_check
 fi
 IFS=$SAVEIFS
