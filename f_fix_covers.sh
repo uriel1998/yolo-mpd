@@ -351,12 +351,12 @@ function directory_check () {
                 fi
             fi
             if [ $AUTOEMBED -eq 1 ];then
-                find "${SONGDIR}" -name '*.mp3' -printf '%p\n' > "${songlist}"
+                find "${SONGDIR}" -name '*.mp3' -printf '"%p"\n' | xargs -I {} realpath {} > "${songlist}"
                 while read -r line; do
                     if [ $SAFETY -eq 0 ];then 
-                        eyeD3 --add-image="${canon_cover}":FRONT_COVER "${SONGFILE}" 2>/dev/null
+                        eyeD3 --add-image="${canon_cover}":FRONT_COVER "${line}" 2>/dev/null
                     else
-                        echo "### SAFETY: eyeD3 --add-image=${canon_cover}:FRONT_COVER ${SONGFILE} 2>/dev/null"
+                        echo "### SAFETY: eyeD3 --add-image=${canon_cover}:FRONT_COVER ${line} 2>/dev/null"
                     fi
                 done < "${songlist}"
                 rm "${songlist}"
