@@ -185,16 +185,11 @@ function search_for_cover () {
             canon_cover=$(find "${TMPDIR}" -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g')
         else
             if [ $FOUND_COVERS -gt 0 ];then
-                echo "HERE"
                 canon_cover=$(show_compare_images "$(find ${TMPDIR} -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g')")
             else
                 canon_cover=""
             fi
-            echo "HERE"
-            clear
-            exit
         fi
-        echo "FUDK"
         echo "${canon_cover}"
     fi
 }
@@ -233,10 +228,9 @@ function show_compare_images () {
     else
         result=$(echo "ϑ${result}")
         # return the filename of the chosen cover.
-        outstring=$(realpath $(grep -e "${result}" "${test_list}" | awk -F 'ϑ' '{print $1}'))
-        echo "${outstring}"
+        canon_cover=$(realpath $(grep -e "${result}" "${test_list}" | awk -F 'ϑ' '{print $1}'))
+        echo "${canon_cover}"
     fi
-
     #clean up after ourselves, don't delete the found ones yet tho.
     rm "${show_list}"    
     rm "${test_list}"    
@@ -308,17 +302,14 @@ function directory_check () {
                     COMPAREFAIL=$((COMPAREFAIL+1))
                 fi
             done < "${testlist}"
-            cat "${testlist}" 
             if [ $COMPAREFAIL -gt 0 ];then
-                echo "THERE"
                 canon_cover=$(show_compare_images "$(find ${TMPDIR} -name '*FOUND_COVER.jpeg'| xargs -I {} echo {} | sed 's@\ @\\ @g')")
                 echo "${canon_cover}"
-                exit
                 if [ ! -s "${canon_cover}" ]; then
-                    export "${SONGDIR}"
-                    
+                    #export "${SONGDIR}"
                     canon_cover=$(search_for_cover "${SONGDIR}")
                 fi
+                echo "${canon_cover}"
                 exit
             fi
         else
