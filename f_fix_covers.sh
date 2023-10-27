@@ -18,16 +18,13 @@
 
 AUTOEMBED=0
 TMPDIR=$(mktemp -d)
-startdir="$PWD"
 dirlist=$(mktemp)
 songlist=$(mktemp)
 testlist=$(mktemp)
 MusicDir=""
-SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 # Change back after testing.
 #SAFETY=0
 SAFETY=1
-MODE="DIR"
 LOUD=1
 
 function loud() {
@@ -57,10 +54,10 @@ function cleanup {
 
 
 function cleanup_end {
-    rm -rf ${TMPDIR}
-    rm ${dirlist}
-    rm ${songlist}
-    rm ${testlist}    
+    rm -rf "${TMPDIR}"
+    rm "${dirlist}"
+    rm "${songlist}"
+    rm "${testlist}"    
 }
 
 #https://www.reddit.com/r/bash/comments/8nau9m/remove_leading_and_trailing_spaces_from_a_variable/
@@ -115,7 +112,7 @@ function search_for_cover (){
     # currently just going to pick one in the directory, as even if the *covers* 
     # are different, the *album* and *artist* (or album artist) should be the same.
     if [ -d "${1}" ];then
-        SONGFILE=$(find "${SONGDIR}" -name '*.mp3' -printf '%p\n' | sort -u | xargs -I {} realpath {} )
+        SONGFILE=$(find "${SONGDIR}" -name '*.mp3' -printf '"%p"\n' | sort -u | xargs -I {} realpath {} )
     else
         SONGFILE="${1}"
     fi
@@ -140,7 +137,7 @@ function search_for_cover (){
         
         # MusicBrainz ID
         MBID=$(echo "$songdata" | grep "MusicBrainz Album Id:" | awk -F ': ' '{print $2}')
-        if [ "$MBID" != '' ] || [ "$MBID" != 'null' ];then
+        if [ "$MBID" != '' ] && [ "$MBID" != 'null' ];then
             API_URL="https://coverartarchive.org/release/$MBID/front"
             IMG_URL=$(curl "$API_URL" | awk -F ': ' '{print $2}')
             wget --quiet "${IMG_URL}" -O "$TMPDIR/MusicBrains_DL.jpg" 2>&1
@@ -157,7 +154,7 @@ function search_for_cover (){
         # Escaping album names here suuuuucks
         ##########################################################################
         glyrc_bin=$(which glyrc)
-        if [ -f $glyrc_bin ];then
+        if [ -f "${glyrc_bin}" ];then
             glyrc cover --timeout 15 --artist "${ARTIST}" --album "${ALBUM}" --write "${TMPDIR}/cover.tmp" --from "discogs;rhapsody;lastfm"
             if [ -f "$TMPDIR/cover.tmp" ];then
                 FOUND_COVERS=$((FOUND_COVERS+1))
@@ -181,7 +178,7 @@ function search_for_cover (){
         fi
         if [ $AUTOEMBED -eq 1 ] && [ $FOUND_COVERS -eq 1 ];then
             #there's only one....
-            canon_cover=$(find ${TMPDIR} -name '*DL.jpg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g')
+            canon_cover=$(find "${TMPDIR}" -name '*DL.jpg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g')
         else
             if [ $FOUND_COVERS -gt 0 ];then
                 canon_cover=$(show_compare_images "$(find ${TMPDIR} -name '*DL.jpg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g')")
@@ -205,17 +202,13 @@ function show_compare_images () {
     # as a warning to myself if I try to pull this out and forget. :)
     
     # set up layout? 
-    feh --preload --fullindex --thumb-width 200 --thumb-height 200 --stretch --draw-filename --filelist $show_list --output-only "${TMPDIR}/out_montage.jpg"
+    feh --preload --fullindex --thumb-width 200 --thumb-height 200 --stretch --draw-filename --filelist "${show_list}" --output-only "${TMPDIR}/out_montage.jpg"
     
     #Which of the images should be canonical?
-    # These filenames should be properly escaped
-    
-    single_line_list=$(cat $show_list | tr '\n' ' ' )
-    
-    #IFS=$SAVEIFS
+   
     buttonstring=""
     i=1
-    while read line; do
+    while read -r line; do
         tempstring=$(basename ${line})
         buttonstring=$(echo ${buttonstring} --button="${tempstring}:${i}")
         i=$((i+1))
@@ -224,14 +217,14 @@ function show_compare_images () {
     
     eval ${evalstring}
     result=$(echo "$?")
-    if [ $result -eq 99 ];then
+    if [ "${result}" -eq 99 ];then
         echo ""
     else
         # return the filename of the chosen cover.
         outstring=$(realpath $(sed "${result}!d" ${show_list}))
         echo "${outstring}"
     fi
-    #IFS=$(echo -en "\n\b")
+
     #clean up after ourselves, don't delete the found ones yet tho.
     rm "${show_list}"    
     
@@ -240,38 +233,36 @@ function show_compare_images () {
 
 function directory_check () {
 
-    find "${MusicDir}" -name '*.mp3' -printf '%h\n' | sort -u | xargs -I {} realpath {} > "${dirlist}"
+    find "${MusicDir}" -name '*.mp3' -printf '"%h"\n' | sort -u | xargs -I {} realpath {} > "${dirlist}"
     CURRENTENTRY="0"
     ENTRIES=$(cat ${dirlist} | wc -l)
-    while read line
-    do
+    while read -r line; do
         cleanup
-        TITLE=""
-        ALBUMARTIST=""
         SONGFILE=""
         SONGDIR=""
-        SONGDIR=$(realpath ${line})
-        CURRENTENTRY=$(($CURRENTENTRY+1))
+        SONGDIR=$(realpath "${line}")
+        CURRENTENTRY=$((CURRENTENTRY+1))
         echo "$CURRENTENTRY of $ENTRIES ${SONGDIR}"
-        CA_File_Cover=""
-        CA_File_Folder=""
-        CA_File_Embedded=""
+        CA_Embedded=""
         canon_cover=""
         ####################################################################
         # Do cover files exist? If so, make sure both cover and folder exist.
         ####################################################################        
         # get all embedded album art, compare to each other.
-        find "${SONGDIR}" -name '*.mp3' -printf '%p\n' | xargs -I {} realpath {} > "${songlist}"
+        echo "" > "${songlist}"
+        find "${SONGDIR}" -name '*.mp3' -printf '"%p"\n' | xargs -I {} realpath {} >> "${songlist}"
         cleanup
         # Get all embedded front covers
         FOUND_COVERS=0
         EmbeddedChecksums=""
-        while read line; do
+        echo "${songlist}"
+        exit
+        while read -r line; do
             SONGFILE="${line}"
             songdata=$(ffprobe "$SONGFILE" 2>&1)
             # big long grep string to avoid all the possible frakups I found, lol
             CA_Embedded=$(echo "$songdata" | grep Cover | grep -c "front")
-            if [ $CA_Embedded -gt 0 ];then
+            if [ "${CA_Embedded}" -gt 0 ];then
                 extract_cover "${SONGFILE}" "${SONGDIR}"
                 if [ -f "${TMPDIR}/FRONT_COVER.jpeg" ];then 
                     tmpchecksum=$(shasum "${TMPDIR}/FRONT_COVER.jpeg" | awk '{print $1}')
@@ -287,20 +278,18 @@ function directory_check () {
             fi
         done < "${songlist}"
         if [ -f "${SONGDIR}/cover.jpg" ]; then
-            CA_File_Cover=$(shasum "${SONGDIR}/cover.jpg" | awk '{print $1}')
             FOUND_COVERS=$((FOUND_COVERS + 1))
             cp "${SONGDIR}/cover.jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
         fi
         if [ -f "${SONGDIR}/folder.jpg" ]; then
-            CA_File_Folder=$(shasum "${SONGDIR}/folder.jpg" | awk '{print $1}')
             FOUND_COVERS=$((FOUND_COVERS + 1))
             cp "${SONGDIR}/folder.jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
         fi
         if [ $FOUND_COVERS -gt 1 ];then        
-            find "${TMPDIR}" -name '*FOUND_COVER.jpeg' -printf '%p\n' | xargs -I {} realpath {} > "${testlist}"
+            find "${TMPDIR}" -name '*FOUND_COVER.jpeg' -printf '"%p"\n' | xargs -I {} realpath {} > "${testlist}"
             testsha=$(shasum $(cat ${testlist}|shuf) | awk '{print $1}')
             COMPAREFAIL=0
-            while read line do
+            while read -r line; do
                 testingsha=$(shashum ${line} | awk '{print $1}')
                 if [ "$testingsha" != "$testsha" ];then
                     COMPAREFAIL=$((COMPAREFAIL+1))
@@ -346,8 +335,8 @@ function directory_check () {
                 fi
             fi
             if [ $AUTOEMBED -eq 1 ];then
-                find "${SONGDIR}" -name '*.mp3' -printf '%p\n' | xargs -I {} realpath {} > "${songlist}"
-                while read line; do
+                find "${SONGDIR}" -name '*.mp3' -printf '"%p"\n' | xargs -I {} realpath {} > "${songlist}"
+                while read -r line; do
                     if [ $SAFETY -eq 0 ];then 
                         eyeD3 --add-image="${canon_cover}":FRONT_COVER "${SONGFILE}" 2>/dev/null
                     else
