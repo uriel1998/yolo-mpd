@@ -204,8 +204,9 @@ function show_compare_images () {
     # returns the chosen image filename
     # do make sure to quote variables coming into this!
 
-    rm -rf "${TMPDIR}/*FOUND_COVER.jpeg"    
+    
     show_list=$(mktemp)
+    test_list=$(mktemp)
     echo "${@}" > "${show_list}"
     # Note -- this was set at the beginning of the script. Leaving this here 
     # as a warning to myself if I try to pull this out and forget. :)
@@ -220,26 +221,25 @@ function show_compare_images () {
     while read -r line; do
         tempstring=$(basename ${line})
         buttonstring=$(echo ${buttonstring} --button="${tempstring}:${i}")
+        echo "${tempstring}ϑ${i}" >> "${test_list}"
         i=$((i+1))
     done < "${show_list}"
     evalstring=$(printf "yad --window-icon=musique --always-print-result --on-top --skip-taskbar --image-on-top --borders=5 --title \"Choose the appropriate image\" --text-align=center --image \"%s\" --button=\"None:99\" %s" "${TMPDIR}/out_montage.jpg" "${buttonstring}")
     
     eval ${evalstring}
     result="$?"
-    
-    
-    
     if [ ${result} -eq 99 ];then
         echo ""
     else
-        echo "${result}FOUND_COVER.jpeg"
-        result=$(echo "${result}FOUND_COVER.jpeg")
+        result=$(echo "ϑ${result}")
         # return the filename of the chosen cover.
-        outstring=$(realpath $(sed ${result}!d ${show_list}))
+        outstring=$(realpath $(grep -e "${result}" "${test_list}" | awk -F 'ϑ' '{print $1}'))
+        echo "${outstring}"
     fi
 
     #clean up after ourselves, don't delete the found ones yet tho.
     rm "${show_list}"    
+    rm "${test_list}"    
     
 }
     
@@ -308,12 +308,12 @@ function directory_check () {
                     COMPAREFAIL=$((COMPAREFAIL+1))
                 fi
             done < "${testlist}"
-            echo "HERE"
+            cat "${testlist}" 
             if [ $COMPAREFAIL -gt 0 ];then
                 echo "THERE"
                 canon_cover=$(show_compare_images "$(find ${TMPDIR} -name '*FOUND_COVER.jpeg'| xargs -I {} echo {} | sed 's@\ @\\ @g')")
                 echo "${canon_cover}"
-
+                exit
                 if [ ! -s "${canon_cover}" ]; then
                     export "${SONGDIR}"
                     
