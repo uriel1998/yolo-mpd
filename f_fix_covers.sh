@@ -56,9 +56,9 @@ function cleanup {
 
 function cleanup_end {
     rm -rf "${TMPDIR}"
-    rm "${dirlist}"
-    rm "${songlist}"
-    rm "${testlist}"    
+    if [ -f "${dirlist}" ];then rm "${dirlist}"; fi
+    if [ -f "${songlist}" ];then rm "${songlist}"; fi
+    if [ -f "${testlist}" ];then rm "${testlist}"; fi
 }
 
 #https://www.reddit.com/r/bash/comments/8nau9m/remove_leading_and_trailing_spaces_from_a_variable/
@@ -312,8 +312,8 @@ function directory_check () {
                 if [ ! -s "${canon_cover}" ]; then
                     #export "${SONGDIR}"
                     canon_cover=$(search_for_cover "${SONGDIR}")
+                    canon_cover=$(echo "${canon_cover}" | head -n 1)
                 fi
-                echo "${canon_cover}"
             fi
         else
             if [ $FOUND_COVERS -eq 1 ];then
@@ -321,19 +321,19 @@ function directory_check () {
                     canon_cover="${TMPDIR}/1FOUND_COVER.jpeg"
                 else
                     canon_cover=$(show_compare_images "${TMPDIR}/1FOUND_COVER.jpeg")
+                    canon_cover=$(echo "${canon_cover}" | head -n 1)
                 fi
                 if [ ! -f "${canon_cover}" ]; then
                     canon_cover=$(search_for_cover "${SONGDIR}")
+                    canon_cover=$(echo "${canon_cover}" | head -n 1)
                 fi
             else
                 # no cover found
                 canon_cover=$(search_for_cover "${SONGDIR}")
-                echo "${canon_cover}"
+                canon_cover=$(echo "${canon_cover}" | head -n 1)
             fi
         fi
-
-        echo "${canon_cover}"
-        exit
+        
         if [ -s "${canon_cover}" ]; then # this will need to be specified when also testing for what was embedded cover
                 # synchronizing files
             if [ "${canon_cover}" != "${SONGDIR}/cover.jpg" ];then
@@ -351,7 +351,7 @@ function directory_check () {
                 fi
             fi
             if [ $AUTOEMBED -eq 1 ];then
-                find "${SONGDIR}" -name '*.mp3' -printf '%p\n' | xargs -I {} realpath {} > "${songlist}"
+                find "${SONGDIR}" -name '*.mp3' -printf '%p\n' > "${songlist}"
                 while read -r line; do
                     if [ $SAFETY -eq 0 ];then 
                         eyeD3 --add-image="${canon_cover}":FRONT_COVER "${SONGFILE}" 2>/dev/null
