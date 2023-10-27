@@ -12,8 +12,7 @@
 #
 ##############################################################################
 
-# You will always need MP3 mode for those times where a cover doesn't match...
-# hm - maybe call mp3 mode for the files IN dir mode?
+
 # safety mode (report changes, do not do them.)
 
 
@@ -26,8 +25,8 @@ testlist=$(mktemp)
 MusicDir=""
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 # Change back after testing.
-#SAFETY=""
-SAFETY="True"
+#SAFETY=0
+SAFETY=1
 MODE="DIR"
 LOUD=1
 
@@ -105,10 +104,6 @@ function extract_cover () {
     fi  
     if [ -f "$TMPDIR/FRONT_COVER.jpeg" ]; then
         loud "### Cover art retrieved from MP3 ID3 tags!"
-        loud "### Cover art being copied to music directory!"
-        echo "${SONGDIR}/cover.jpg"
-        #cp "$TMPDIR/FRONT_COVER.jpeg" "${SONGDIR}/cover.jpg"
-        #cp "$TMPDIR/FRONT_COVER.jpeg" "${SONGDIR}/folder.jpg"
     fi
 }
 
@@ -337,15 +332,27 @@ function directory_check () {
         if [ -s "${canon_cover}" ]; then # this will need to be specified when also testing for what was embedded cover
                 # synchronizing files
             if [ "${canon_cover}" != "${SONGDIR}/cover.jpg" ];then
-                cp -f "${canon_cover}" "${SONGDIR}/cover.jpg"
+                if [ $SAFETY -eq 0 ];then 
+                    cp -f "${canon_cover}" "${SONGDIR}/cover.jpg"
+                else
+                    echo "### SAFETY: cp -f ${canon_cover} ${SONGDIR}/cover.jpg"
+                fi
             fi
             if [ "${canon_cover}" != "${SONGDIR}/folder.jpg" ];then
-                cp -f "${canon_cover}" "${SONGDIR}/folder.jpg"
+                if [ $SAFETY -eq 0 ];then 
+                    cp -f "${canon_cover}" "${SONGDIR}/folder.jpg"
+                else
+                    echo "### SAFETY: cp -f ${canon_cover} ${SONGDIR}/folder.jpg"
+                fi
             fi
             if [ $AUTOEMBED -eq 1 ];then
                 find "${SONGDIR}" -name '*.mp3' -printf '%p\n' | xargs -I {} realpath {} > "${songlist}"
                 while read line; do
-                    eyeD3 --add-image="${canon_cover}":FRONT_COVER "$SONGFILE" 2>/dev/null
+                    if [ $SAFETY -eq 0 ];then 
+                        eyeD3 --add-image="${canon_cover}":FRONT_COVER "${SONGFILE}" 2>/dev/null
+                    else
+                        echo "### SAFETY: eyeD3 --add-image=${canon_cover}:FRONT_COVER ${SONGFILE} 2>/dev/null"
+                    fi
                 done < "${songlist}"
                 rm "${songlist}"
             fi
@@ -362,7 +369,7 @@ function directory_check () {
             shift ;;      
         -a|--autoembed) AUTOEMBED=1
             shift ;;
-        -s|--safe) SAFETY="TRUE"
+        -s|--safe) SAFETY=1
             shift ;;      
         -q|--quiet) LOUD="0"
             shift ;;                  
