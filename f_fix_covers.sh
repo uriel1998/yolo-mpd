@@ -12,7 +12,8 @@
 #
 ##############################################################################
 
-# TODO: start testing, lol.
+# You will always need MP3 mode for those times where a cover doesn't match...
+# hm - maybe call mp3 mode for the files IN dir mode?
 # safety mode (report changes, do not do them.)
 
 
@@ -117,7 +118,7 @@ function search_for_cover (){
     # currently just going to pick one in the directory, as even if the *covers* 
     # are different, the *album* and *artist* (or album artist) should be the same.
     if [ -d "${1}" ];then
-        SONGFILE=$(find "${SONGDIR}" -name '*.mp3' -printf '%p\n' | xargs -I {} realpath {})
+        SONGFILE=$(find "${SONGDIR}" -name '*.mp3' -printf '%p\n' | sort -u | xargs -I {} realpath {} )
     else
         SONGFILE="${1}"
     fi
@@ -406,6 +407,7 @@ function directory_check () {
                     canon_cover=$(search_for_cover "${SONGDIR}")
                 fi
             fi
+            
             if [ -f "${canon_cover}" ]; then # this will need to be specified when also testing for what was embedded cover
                 # synchronizing files
                 if [ "${canon_cover}" != "${SONGDIR}/cover.jpg" ];then
@@ -414,9 +416,17 @@ function directory_check () {
                 if [ "${canon_cover}" != "${SONGDIR}/folder.jpg" ];then
                     cp -f "${canon_cover}" "${SONGDIR}/folder.jpg"
                 fi
+                if [ $AUTOEMBED -eq 1 ];then
+                    find "${SONGDIR}" -name '*.mp3' -printf '%p\n' | xargs -I {} realpath {} > "${songlist}"
+                    while read line; do
+                        eyeD3 --add-image="${canon_cover}":FRONT_COVER "$SONGFILE" 2>/dev/null
+                    done < "${songlist}"
+                    rm "${songlist}"
+                fi
             fi
         fi
-    done < "$dirlist"
+    done < "${dirlist}"
+    rm "${dirlist}"
 }
 
     while [ $# -gt 0 ]; do
