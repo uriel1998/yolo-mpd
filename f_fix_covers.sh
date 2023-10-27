@@ -216,7 +216,7 @@ function show_compare_images () {
     while read -r line; do
         tempstring=$(basename ${line})
         buttonstring=$(echo ${buttonstring} --button="${tempstring}:${i}")
-        echo "${tempstring}ϑ${i}" >> "${test_list}"
+        echo "${line}ϑ${i}" >> "${test_list}"
         i=$((i+1))
     done < "${show_list}"
     evalstring=$(printf "yad --window-icon=musique --always-print-result --on-top --skip-taskbar --image-on-top --borders=5 --title \"Choose the appropriate image\" --text-align=center --image \"%s\" --button=\"None:99\" %s" "${TMPDIR}/out_montage.jpg" "${buttonstring}")
@@ -227,6 +227,7 @@ function show_compare_images () {
         echo ""
     else
         result=$(echo "ϑ${result}")
+        grep -e "${result}" "${test_list}" | awk -F 'ϑ' '{print $1}'
         # return the filename of the chosen cover.
         canon_cover=$(realpath $(grep -e "${result}" "${test_list}" | awk -F 'ϑ' '{print $1}'))
         echo "${canon_cover}"
@@ -304,13 +305,15 @@ function directory_check () {
             done < "${testlist}"
             if [ $COMPAREFAIL -gt 0 ];then
                 canon_cover=$(show_compare_images "$(find ${TMPDIR} -name '*FOUND_COVER.jpeg'| xargs -I {} echo {} | sed 's@\ @\\ @g')")
-                echo "${canon_cover}"
+                # failing to recognize the file here.  Not sure why.
+                # it's returning two lines. WHY???
+                # the head line below fixes it, anyway...
+                canon_cover=$(echo "${canon_cover}" | head -n 1)
                 if [ ! -s "${canon_cover}" ]; then
                     #export "${SONGDIR}"
                     canon_cover=$(search_for_cover "${SONGDIR}")
                 fi
                 echo "${canon_cover}"
-                exit
             fi
         else
             if [ $FOUND_COVERS -eq 1 ];then
@@ -325,12 +328,12 @@ function directory_check () {
             else
                 # no cover found
                 canon_cover=$(search_for_cover "${SONGDIR}")
-                echo "GOT HERE"
                 echo "${canon_cover}"
             fi
         fi
 
-
+        echo "${canon_cover}"
+        exit
         if [ -s "${canon_cover}" ]; then # this will need to be specified when also testing for what was embedded cover
                 # synchronizing files
             if [ "${canon_cover}" != "${SONGDIR}/cover.jpg" ];then
