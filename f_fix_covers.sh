@@ -18,20 +18,21 @@
 # touch to restore original file dates when writing to MP3
 
 
-AUTOEMBED=0
 TMPDIR=$(mktemp -d)
 dirlist=$(mktemp)
 songlist=$(mktemp)
 testlist=$(mktemp)
 MusicDir=""
-# Change back after testing.
-SAFETY=0
-#SAFETY=1
-LOUD=0
-ALERT=0
-SONGDIR=""
 # This is a dirty global variable hack.
 SHOW_SONGSTRING=""
+
+SAFETY=0    # output actions would have taken
+AUTOEMBED=0 # embed images in mp3
+REMOVE=0    # Remove images
+LOUD=0      # verbose
+ALERT=0     # play audible ping when user input needed
+SONGDIR=""
+
 export SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 function loud() {
@@ -45,9 +46,10 @@ function display_help {
     echo " "
     echo "-h|--help         : This."
     echo "-a|--autoembed    : Embed found, selected covers into MP3s."
-    echo "-l|--alert        : Play audible tone when user input needed."    
+    echo "-p|--ping         : Play audible tone when user input needed."    
+    echo "-r|--remove       : Remove existing embedded images in MP3s when cover found."        
     echo "-s|--safe         : Just say what it would do, do not actually do operations."
-    echo "-q|--quiet        : Minimal output."    
+    echo "-l|--loud         : Verbose output."    
     echo "-d|--dir [DIR]    : Specify the music directory to scan."
 }
 
@@ -118,6 +120,7 @@ function search_for_cover () {
     FOUND_COVERS=0
     # currently just going to pick one in the directory, as even if the *covers* 
     # are different, the *album* and *artist* (or album artist) should be the same.
+    # Nope -- the artists can be different. So need a loop here as well
     if [ -d "${1}" ];then
         SONGFILE=$(find "${SONGDIR}" -name '*.mp3' | head -1 )
     else
@@ -231,13 +234,13 @@ function show_compare_images () {
             ALERT=0
         else
             if [ -f $(which mpg123) ];then 
-                mpg123 -q ./444918__matrixxx__ping.mp3 2> /dev/null 1>/dev/null &
+                mpg123 -q "${SCRIPT_DIR}/444918__matrixxx__ping.mp3" 2> /dev/null 1>/dev/null &
             else
                 if [ -f $(which mplayer) ];then
-                
+                    mplayer "${SCRIPT_DIR}/444918__matrixxx__ping.mp3" 2> /dev/null 1>/dev/null &
                 else
                     if [ -f $(which mpv) ];then
-                        mpv 2> /dev/null 1>/dev/null &
+                        mpv "${SCRIPT_DIR}/444918__matrixxx__ping.mp3" 2> /dev/null 1>/dev/null &
                     fi
                 fi
                 # None of the players are found, no sense going through all this again.
@@ -358,7 +361,9 @@ function directory_check () {
             COMPAREFAIL=0
             while read -r line; do
                 testingsha=$(shasum ${line} | awk '{print $1}')
-                if [[ "${testingsha}" == "${testsha}" ]];then
+                
+                if [[ "${testingsha}" != "${testsha}" ]];then
+                    echo "${testingsha}" @@ "${testsha}"
                     COMPAREFAIL=$((COMPAREFAIL+1))
                 fi
             done < "${testlist}"
@@ -415,13 +420,16 @@ function directory_check () {
                     if [ $SAFETY -eq 0 ];then 
                         filetime=$(stat -c '%y' "${line}")
                         if [ $LOUD -eq 1 ];then
-                            eyeD3 --add-image="${canon_cover}":FRONT_COVER "${line}"
+                            if [ $REMOVE -eq 1 ]; then eyeD3 --remove-all-images "${line}" ;fi
+                            eyeD3 --add-image="${canon_cover}":FRONT_COVER:Cover "${line}"
                         else
-                            eyeD3 --add-image="${canon_cover}":FRONT_COVER "${line}" 2> /dev/null 1> /dev/null
+                            if [ $REMOVE -eq 1 ];then eyeD3 --remove-all-images "${line}" 2> /dev/null 1> /dev/null ; fi
+                            eyeD3 --add-image="${canon_cover}":FRONT_COVER:Cover "${line}" 
                         fi
                         touch -d "${filetime}" "${line}"
                     else
-                        echo "### SAFETY: eyeD3 --add-image=${canon_cover}:FRONT_COVER ${line} 2>/dev/null"
+                        if [ $REMOVE -eq 1 ];then echo "### SAFETY: eyeD3 --remove-all-images ${line}";fi
+                        echo "### SAFETY: eyeD3 --add-image=${canon_cover}:FRONT_COVER ${line}"
                     fi
                 done < "${songlist}"
                 rm "${songlist}"
@@ -439,12 +447,14 @@ function directory_check () {
             shift ;;      
         -a|--autoembed) AUTOEMBED=1
             shift ;;
-        -l|--alert) ALERT=1
+        -p|--ping) ALERT=1
             shift ;;
         -s|--safe) SAFETY=1
             shift ;;      
-        -q|--quiet) LOUD="0"
+        -l|--loud) LOUD=1
             shift ;;                  
+        -r|--remove) REMOVE=1
+            shift ;;                              
         -d|--dir) 
             shift 
             if [ -d "${1}" ];then
