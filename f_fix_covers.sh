@@ -118,106 +118,119 @@ function search_for_cover () {
  
     rm -rf "${TMPDIR}/*FOUND_COVER.jpeg"   
     FOUND_COVERS=0
-    # currently just going to pick one in the directory, as even if the *covers* 
-    # are different, the *album* and *artist* (or album artist) should be the same.
-    # Nope -- the artists can be different. So need a loop here as well
+    searchsonglist=$(mktemp)
+    ARTIST=""
+    ALBUM=""
+    
+    # put it all into another list to manage
     if [ -d "${1}" ];then
-        SONGFILE=$(find "${SONGDIR}" -name '*.mp3' | head -1 )
+        find "${SONGDIR}" -name '*.mp3' -printf '%p\n' > "${searchsonglist}"
+        while read -r line; do
+            tempstring=$(basename ${line})
+        done < "${searchsonglist}"
     else
-        SONGFILE="${1}"
+        echo "${1}" > "${searchsonglist}"
     fi
- 
-    if [ -s "${SONGFILE}" ];then 
-        songdata=$(ffprobe "$SONGFILE" 2>&1)
-        # big long grep string to avoid all the possible frakups I found, lol
-        ARTIST=$(echo "$songdata" | grep "album_artist" | grep -v "mp3," | head -1 | awk -F ': ' '{for(i=2;i<=NF;++i)print $i}')
-        if [ "$ARTIST" == "" ];then
-            ARTIST=$(echo "$songdata" | grep "artist" | grep -v "mp3," | head -1 | awk -F ': ' '{for(i=2;i<=NF;++i)print $i}')
-        fi
-        ALBUM=$(echo "$songdata" | grep "album" | head -1 | awk -F ': ' '{for(i=2;i<=NF;++i)print $i}' | tr '\n' ' ')
-        ARTIST=$(trim "$ARTIST")
-        ALBUM=$(trim "$ALBUM")
+    
+    while read -r line; do
+        SONGFILE="${line}"
+        if [ -s "${SONGFILE}" ];then 
+            songdata=$(ffprobe "$SONGFILE" 2>&1)
+            # big long grep string to avoid all the possible frakups I found, lol
+            tARTIST=$(echo "$songdata" | grep "album_artist" | grep -v "mp3," | head -1 | awk -F ': ' '{for(i=2;i<=NF;++i)print $i}')
+            if [ "$ARTIST" == "" ];then
+                ARTIST=$(echo "$songdata" | grep "artist" | grep -v "mp3," | head -1 | awk -F ': ' '{for(i=2;i<=NF;++i)print $i}')
+            fi
+            tALBUM=$(echo "$songdata" | grep "album" | head -1 | awk -F ': ' '{for(i=2;i<=NF;++i)print $i}' | tr '\n' ' ')
+            tARTIST=$(trim "$ARTIST")
+            tALBUM=$(trim "$ALBUM")
+            if [[ "${tALBUM}" != "${ALBUM}" ]] || [[ "${tARTIST}" != "${ARTIST}" ]];then
+                # there were unequal values found, re-attempt search.
 
-        ##########################################################################
-        # Attempt to get coverart from CoverArt Archive
-        ##########################################################################
-        MBID=""
-        IMG_URL=""
-        API_URL=""   
-        
-        # MusicBrainz ID
-        MBID=$(echo "$songdata" | grep "MusicBrainz Album Id:" | awk -F ': ' '{print $2}')
-        if [ "$MBID" != '' ] && [ "$MBID" != 'null' ];then
-            API_URL="https://coverartarchive.org/release/$MBID/front"
-            IMG_URL=$(curl "$API_URL" | awk -F ': ' '{print $2}')
-            if [ $LOUD -eq 1 ];then
-                wget --timeout=10 --quiet "${IMG_URL}" -O "$TMPDIR/MusicBrains_DL.jpg"
-            else
-                wget --timeout=10 --quiet "${IMG_URL}" -O "$TMPDIR/MusicBrains_DL.jpg" 2>/dev/null 1>/dev/null
-            fi
-            
-            if [ ! -s "$TMPDIR/MusicBrains_DL.jpg" ];then
-                rm "$TMPDIR/MusicBrains_DL.jpg"
-            else
-                FOUND_COVERS=$((FOUND_COVERS+1))
-                mv "$TMPDIR/MusicBrains_DL.jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
-            fi
-        fi
+                ##########################################################################
+                # Attempt to get coverart from CoverArt Archive
+                ##########################################################################
+                MBID=""
+                IMG_URL=""
+                API_URL=""   
+                
+                # MusicBrainz ID
+                MBID=$(echo "$songdata" | grep "MusicBrainz Album Id:" | awk -F ': ' '{print $2}')
+                if [ "$MBID" != '' ] && [ "$MBID" != 'null' ];then
+                    API_URL="https://coverartarchive.org/release/$MBID/front"
+                    IMG_URL=$(curl "$API_URL" | awk -F ': ' '{print $2}')
+                    if [ $LOUD -eq 1 ];then
+                        wget --timeout=10 --quiet "${IMG_URL}" -O "$TMPDIR/MusicBrains_DL.jpg"
+                    else
+                        wget --timeout=10 --quiet "${IMG_URL}" -O "$TMPDIR/MusicBrains_DL.jpg" 2>/dev/null 1>/dev/null
+                    fi
+                    
+                    if [ ! -s "$TMPDIR/MusicBrains_DL.jpg" ];then
+                        rm "$TMPDIR/MusicBrains_DL.jpg"
+                    else
+                        FOUND_COVERS=$((FOUND_COVERS+1))
+                        mv "$TMPDIR/MusicBrains_DL.jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
+                    fi
+                fi
 
 
-        ##########################################################################
-        # Attempt to find cover art via glyrc if it's in $PATH
-        # Escaping album names here suuuuucks
-        ##########################################################################
-        glyrc_bin=$(which glyrc)
-        if [ -f "${glyrc_bin}" ];then
-            if [ $LOUD -eq 1 ];then
-                glyrc cover --timeout 15 --artist "${ARTIST}" --album "${ALBUM}" --write "${TMPDIR}/cover.tmp" --from "discogs;rhapsody;lastfm"
-            else
-                glyrc cover --timeout 15 --artist "${ARTIST}" --album "${ALBUM}" --write "${TMPDIR}/cover.tmp" --from "discogs;rhapsody;lastfm" 2>/dev/null 1>/dev/null
-            fi
-            
-            if [ -f "$TMPDIR/cover.tmp" ];then
-                FOUND_COVERS=$((FOUND_COVERS+1))
-                convert "$TMPDIR/cover.tmp" "$TMPDIR/Glyrc_DL.jpg"
-                mv "$TMPDIR/Glyrc_DL.jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
-                rm "$TMPDIR/cover.tmp"
-            fi
-        fi
-        ##########################################################################
-        # Attempt to find cover art via sacad if it's in $PATH
-        ##########################################################################
-        rm "$TMPDIR/FRONT_COVER.jpeg"
-        sacad_bin=$(which sacad)
-        if [ -f "${sacad_bin}" ];then 
-            exec_string=$(printf "%s \"%s\" \"%s\" 512 %s/FRONT_COVER.jpeg" "${sacad_bin}" "${ARTIST}" "${ALBUM}" "$TMPDIR")
-            if [ $LOUD -eq 1 ];then
-                eval "$exec_string" 
-            else
-                eval "$exec_string" 2>/dev/null 1>/dev/null
-            fi
-            if [ -f "$TMPDIR/FRONT_COVER.jpeg" ];then
-                FOUND_COVERS=$((FOUND_COVERS+1))
-                convert "$TMPDIR/FRONT_COVER.jpeg" "$TMPDIR/Sacad_DL.jpg"
-                mv "$TMPDIR/Sacad_DL.jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
+                ##########################################################################
+                # Attempt to find cover art via glyrc if it's in $PATH
+                # Escaping album names here suuuuucks
+                ##########################################################################
+                glyrc_bin=$(which glyrc)
+                if [ -f "${glyrc_bin}" ];then
+                    if [ $LOUD -eq 1 ];then
+                        glyrc cover --timeout 15 --artist "${ARTIST}" --album "${ALBUM}" --write "${TMPDIR}/cover.tmp" --from "discogs;rhapsody;lastfm"
+                    else
+                        glyrc cover --timeout 15 --artist "${ARTIST}" --album "${ALBUM}" --write "${TMPDIR}/cover.tmp" --from "discogs;rhapsody;lastfm" 2>/dev/null 1>/dev/null
+                    fi
+                    
+                    if [ -f "$TMPDIR/cover.tmp" ];then
+                        FOUND_COVERS=$((FOUND_COVERS+1))
+                        convert "$TMPDIR/cover.tmp" "$TMPDIR/Glyrc_DL.jpg"
+                        mv "$TMPDIR/Glyrc_DL.jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
+                        rm "$TMPDIR/cover.tmp"
+                    fi
+                fi
+                ##########################################################################
+                # Attempt to find cover art via sacad if it's in $PATH
+                ##########################################################################
                 rm "$TMPDIR/FRONT_COVER.jpeg"
+                sacad_bin=$(which sacad)
+                if [ -f "${sacad_bin}" ];then 
+                    exec_string=$(printf "%s \"%s\" \"%s\" 512 %s/FRONT_COVER.jpeg" "${sacad_bin}" "${ARTIST}" "${ALBUM}" "$TMPDIR")
+                    if [ $LOUD -eq 1 ];then
+                        eval "$exec_string" 
+                    else
+                        eval "$exec_string" 2>/dev/null 1>/dev/null
+                    fi
+                    if [ -f "$TMPDIR/FRONT_COVER.jpeg" ];then
+                        FOUND_COVERS=$((FOUND_COVERS+1))
+                        convert "$TMPDIR/FRONT_COVER.jpeg" "$TMPDIR/Sacad_DL.jpg"
+                        mv "$TMPDIR/Sacad_DL.jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
+                        rm "$TMPDIR/FRONT_COVER.jpeg"
+                    fi
+                fi
             fi
         fi
-        #Dirty horrible global variable hack
-        SHOW_SONGSTRING=$(echo "${ALBUM} -- ${ARTIST}")
+    done < "${searchsonglist}"
 
-        if [ $AUTOEMBED -eq 1 ] && [ $FOUND_COVERS -eq 1 ];then
-            #there's only one....
-            canon_cover=$(find "${TMPDIR}" -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g')
+    #Dirty horrible global variable hack
+    SHOW_SONGSTRING=$(echo "${ALBUM} -- ${ARTIST}")
+
+    if [ $AUTOEMBED -eq 1 ] && [ $FOUND_COVERS -eq 1 ];then
+        #there's only one....
+        canon_cover=$(find "${TMPDIR}" -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g')
+    else
+        if [ $FOUND_COVERS -gt 0 ];then
+            canon_cover=$(show_compare_images "$(find ${TMPDIR} -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g')")
         else
-            if [ $FOUND_COVERS -gt 0 ];then
-                canon_cover=$(show_compare_images "$(find ${TMPDIR} -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g')")
-            else
-                canon_cover=""
-            fi
+            canon_cover=""
         fi
-        echo "${canon_cover}"
     fi
+    echo "${canon_cover}"
+
 }
 
 function show_compare_images () {
