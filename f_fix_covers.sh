@@ -13,7 +13,9 @@
 ##############################################################################
 
 
-# safety mode (report changes, do not do them.)
+# Test if NO cover is found anywhere to check
+# quiet down some of the output
+# turn loud off by default
 
 
 AUTOEMBED=0
