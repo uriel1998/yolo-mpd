@@ -89,7 +89,7 @@ function extract_cover () {
     cleanup
     loud "Extracting cover from ${SONGFILE}"
     
-    eyeD3 --write-images="$TMPDIR" "$SONGFILE" 1> /dev/null 2> /dev/null
+    eyeD3 --write-images="$TMPDIR" "$SONGFILE" 1>/dev/null 2>/dev/null
     if [ -f "$TMPDIR/FRONT_COVER.png" ]; then
         loud "### Converting PNG into JPG"
         convert "$TMPDIR/FRONT_COVER.png" "$TMPDIR/FRONT_COVER.jpeg"
@@ -218,7 +218,7 @@ function search_for_cover () {
                         FOUND_COVERS=$((FOUND_COVERS+1))
                         convert "$TMPDIR/FRONT_COVER.jpeg" "$TMPDIR/Sacad_DL.jpg"
                         mv "$TMPDIR/Sacad_DL.jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
-                        rm "$TMPDIR/FRONT_COVER.jpeg"
+                        rm "$TMPDIR/FRONT_COVER.jpeg" 2>/dev/null 1>/dev/null
                     fi
                 fi
             fi
@@ -255,13 +255,13 @@ function show_compare_images () {
             ALERT=0
         else
             if [ -f $(which mpg123) ];then 
-                mpg123 -q "${SCRIPT_DIR}/444918__matrixxx__ping.mp3" 2> /dev/null 1>/dev/null &
+                mpg123 -q "${SCRIPT_DIR}/444918__matrixxx__ping.mp3" 2>/dev/null 1>/dev/null &
             else
                 if [ -f $(which mplayer) ];then
-                    mplayer "${SCRIPT_DIR}/444918__matrixxx__ping.mp3" 2> /dev/null 1>/dev/null &
+                    mplayer "${SCRIPT_DIR}/444918__matrixxx__ping.mp3" 2>/dev/null 1>/dev/null &
                 else
                     if [ -f $(which mpv) ];then
-                        mpv "${SCRIPT_DIR}/444918__matrixxx__ping.mp3" 2> /dev/null 1>/dev/null &
+                        mpv "${SCRIPT_DIR}/444918__matrixxx__ping.mp3" 2>/dev/null 1>/dev/null &
                     fi
                 fi
                 # None of the players are found, no sense going through all this again.
@@ -457,7 +457,7 @@ function directory_check () {
                             if [ $REMOVE -eq 1 ]; then eyeD3 --remove-all-images "${line}" ;fi
                             eyeD3 --add-image="${canon_cover}":FRONT_COVER:Cover "${line}"
                         else
-                            if [ $REMOVE -eq 1 ];then eyeD3 --remove-all-images "${line}" 2> /dev/null 1> /dev/null ; fi
+                            if [ $REMOVE -eq 1 ];then eyeD3 --remove-all-images "${line}" 2>/dev/null 1>/dev/null ; fi
                             eyeD3 --add-image="${canon_cover}":FRONT_COVER:Cover "${line}" 
                         fi
                         touch -d "${filetime}" "${line}"
