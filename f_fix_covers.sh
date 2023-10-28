@@ -23,8 +23,8 @@ songlist=$(mktemp)
 testlist=$(mktemp)
 MusicDir=""
 # Change back after testing.
-#SAFETY=0
-SAFETY=1
+SAFETY=0
+#SAFETY=1
 LOUD=1
 SONGDIR=""
 
