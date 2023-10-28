@@ -15,7 +15,6 @@
 
 # Test if NO cover is found anywhere to check
 # quiet down some of the output
-# turn loud off by default
 
 
 AUTOEMBED=0
@@ -27,8 +26,10 @@ MusicDir=""
 # Change back after testing.
 SAFETY=0
 #SAFETY=1
-LOUD=1
+LOUD=0
 SONGDIR=""
+# This is a dirty global variable hack.
+SHOW_SONGSTRING=""
 
 function loud() {
     if [ $LOUD -eq 1 ];then
@@ -143,7 +144,7 @@ function search_for_cover () {
         if [ "$MBID" != '' ] && [ "$MBID" != 'null' ];then
             API_URL="https://coverartarchive.org/release/$MBID/front"
             IMG_URL=$(curl "$API_URL" | awk -F ': ' '{print $2}')
-            wget --timeout=10 --quiet "${IMG_URL}" -O "$TMPDIR/MusicBrains_DL.jpg" 2>&1
+            wget --timeout=10 --quiet "${IMG_URL}" -O "$TMPDIR/MusicBrains_DL.jpg" 2>/dev/null
             if [ ! -s "$TMPDIR/MusicBrains_DL.jpg" ];then
                 rm "$TMPDIR/MusicBrains_DL.jpg"
             else
@@ -182,6 +183,9 @@ function search_for_cover () {
                 rm "$TMPDIR/FRONT_COVER.jpeg"
             fi
         fi
+        #Dirty horrible global variable hack
+        SHOW_SONGSTRING=$(echo "${ALBUM} -- ${ARTIST}")
+
         if [ $AUTOEMBED -eq 1 ] && [ $FOUND_COVERS -eq 1 ];then
             #there's only one....
             canon_cover=$(find "${TMPDIR}" -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g')
@@ -221,7 +225,7 @@ function show_compare_images () {
         echo "${line}ϑ${i}" >> "${test_list}"
         i=$((i+1))
     done < "${show_list}"
-    evalstring=$(printf "yad --window-icon=musique --always-print-result --on-top --skip-taskbar --image-on-top --borders=5 --title \"Choose the appropriate image\" --text-align=center --image \"%s\" --button=\"None:99\" %s" "${TMPDIR}/out_montage.jpg" "${buttonstring}")
+    evalstring=$(printf "yad --window-icon=musique --always-print-result --on-top --skip-taskbar --image-on-top --borders=5 --title \"Choose for %s\" --text-align=center --image \"%s\" --button=\"None:99\" %s" "${SHOW_SONGSTRING}" "${TMPDIR}/out_montage.jpg" "${buttonstring}")
     
     eval ${evalstring}
     result="$?"
@@ -270,6 +274,15 @@ function directory_check () {
             echo "${line}"
             SONGFILE="${line}"
             songdata=$(ffprobe "$SONGFILE" 2>&1)
+            ARTIST=$(echo "$songdata" | grep "album_artist" | grep -v "mp3," | head -1 | awk -F ': ' '{for(i=2;i<=NF;++i)print $i}')
+            if [ "$ARTIST" == "" ];then
+                ARTIST=$(echo "$songdata" | grep "artist" | grep -v "mp3," | head -1 | awk -F ': ' '{for(i=2;i<=NF;++i)print $i}')
+            fi
+            ALBUM=$(echo "$songdata" | grep "album" | head -1 | awk -F ': ' '{for(i=2;i<=NF;++i)print $i}' | tr '\n' ' ')
+            ARTIST=$(trim "$ARTIST")
+            ALBUM=$(trim "$ALBUM")
+            
+            
             # big long grep string to avoid all the possible frakups I found, lol
             CA_Embedded=$(echo "$songdata" | grep Cover | grep -c "front")
             if [ "${CA_Embedded}" -gt 0 ];then
@@ -295,13 +308,19 @@ function directory_check () {
             FOUND_COVERS=$((FOUND_COVERS + 1))
             cp "${SONGDIR}/folder.jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
         fi
+        #Dirty horrible global variable hack
+        SHOW_SONGSTRING=$(echo "${ALBUM} -- ${ARTIST}")
+
+        
         if [ $FOUND_COVERS -gt 1 ];then        
             find "${TMPDIR}" -name '*FOUND_COVER.jpeg' -printf '%p\n' | xargs -I {} realpath {} > "${testlist}"
             testsha=$(shasum $(cat ${testlist}|shuf) | awk '{print $1}')
             COMPAREFAIL=0
+            echo "${testsha}"
             while read -r line; do
                 testingsha=$(shasum ${line} | awk '{print $1}')
-                if [ "$testingsha" != "$testsha" ];then
+                echo "${testingsha}"
+                if [[ "${testingsha}" == "${testsha}" ]];then
                     COMPAREFAIL=$((COMPAREFAIL+1))
                 fi
             done < "${testlist}"
@@ -405,7 +424,7 @@ SAVEIFS=$IFS
 IFS=$(echo -en "\n\b")
 
 loud "Checking files in directory."
-directory_check
+directory_check "${MusicDir}"
 
 IFS=$SAVEIFS
 
