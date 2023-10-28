@@ -14,7 +14,8 @@
 
 
 # Test if NO cover is found anywhere to check
-# quiet down some of the output
+# quiet down some of the output (during writing)
+# touch to restore original file dates when writing to MP3
 
 
 AUTOEMBED=0
@@ -44,7 +45,6 @@ function display_help {
     echo "-a|--autoembed    : Do operations without asking user. Don't use this."
     echo "-s|--safe         : Just say what it would do, do not actually do operations."
     echo "-q|--quiet        : Minimal output."    
-    echo "-f|--file         : Examine *every* MP3 individually instead of images in the file folder."
     echo "-d|--dir [DIR]    : Specify the music directory to scan."
 }
 
@@ -81,7 +81,7 @@ function extract_cover () {
     cleanup
     loud "Extracting cover from ${SONGFILE}"
     
-    eyeD3 --write-images="$TMPDIR" "$SONGFILE" 1> /dev/null
+    eyeD3 --write-images="$TMPDIR" "$SONGFILE" 1> /dev/null 2> /dev/null
     if [ -f "$TMPDIR/FRONT_COVER.png" ]; then
         loud "### Converting PNG into JPG"
         convert "$TMPDIR/FRONT_COVER.png" "$TMPDIR/FRONT_COVER.jpeg"
@@ -144,7 +144,12 @@ function search_for_cover () {
         if [ "$MBID" != '' ] && [ "$MBID" != 'null' ];then
             API_URL="https://coverartarchive.org/release/$MBID/front"
             IMG_URL=$(curl "$API_URL" | awk -F ': ' '{print $2}')
-            wget --timeout=10 --quiet "${IMG_URL}" -O "$TMPDIR/MusicBrains_DL.jpg" 2>/dev/null
+            if [ $LOUD -eq 1 ];then
+                wget --timeout=10 --quiet "${IMG_URL}" -O "$TMPDIR/MusicBrains_DL.jpg"
+            else
+                wget --timeout=10 --quiet "${IMG_URL}" -O "$TMPDIR/MusicBrains_DL.jpg" 2>/dev/null 1>/dev/null
+            fi
+            
             if [ ! -s "$TMPDIR/MusicBrains_DL.jpg" ];then
                 rm "$TMPDIR/MusicBrains_DL.jpg"
             else
@@ -160,7 +165,12 @@ function search_for_cover () {
         ##########################################################################
         glyrc_bin=$(which glyrc)
         if [ -f "${glyrc_bin}" ];then
-            glyrc cover --timeout 15 --artist "${ARTIST}" --album "${ALBUM}" --write "${TMPDIR}/cover.tmp" --from "discogs;rhapsody;lastfm"
+            if [ $LOUD -eq 1 ];then
+                glyrc cover --timeout 15 --artist "${ARTIST}" --album "${ALBUM}" --write "${TMPDIR}/cover.tmp" --from "discogs;rhapsody;lastfm"
+            else
+                glyrc cover --timeout 15 --artist "${ARTIST}" --album "${ALBUM}" --write "${TMPDIR}/cover.tmp" --from "discogs;rhapsody;lastfm" 2>/dev/null 1>/dev/null
+            fi
+            
             if [ -f "$TMPDIR/cover.tmp" ];then
                 FOUND_COVERS=$((FOUND_COVERS+1))
                 convert "$TMPDIR/cover.tmp" "$TMPDIR/Glyrc_DL.jpg"
@@ -175,7 +185,11 @@ function search_for_cover () {
         sacad_bin=$(which sacad)
         if [ -f "${sacad_bin}" ];then 
             exec_string=$(printf "%s \"%s\" \"%s\" 512 %s/FRONT_COVER.jpeg" "${sacad_bin}" "${ARTIST}" "${ALBUM}" "$TMPDIR")
-            eval "$exec_string"
+            if [ $LOUD -eq 1 ];then
+                eval "$exec_string" 
+            else
+                eval "$exec_string" 2>/dev/null 1>/dev/null
+            fi
             if [ -f "$TMPDIR/FRONT_COVER.jpeg" ];then
                 FOUND_COVERS=$((FOUND_COVERS+1))
                 convert "$TMPDIR/FRONT_COVER.jpeg" "$TMPDIR/Sacad_DL.jpg"
@@ -256,7 +270,7 @@ function directory_check () {
         SONGDIR=""
         SONGDIR=$(realpath "${line}")
         CURRENTENTRY=$((CURRENTENTRY+1))
-        echo "$CURRENTENTRY of $ENTRIES ${SONGDIR}"
+        loud "$CURRENTENTRY of $ENTRIES ${SONGDIR}"
         CA_Embedded=""
         canon_cover=""
         ####################################################################
@@ -271,7 +285,7 @@ function directory_check () {
         FOUND_COVERS=0
         EmbeddedChecksums=""
         while read -r line; do
-            echo "${line}"
+            loud "Examining ${line}"
             SONGFILE="${line}"
             songdata=$(ffprobe "$SONGFILE" 2>&1)
             ARTIST=$(echo "$songdata" | grep "album_artist" | grep -v "mp3," | head -1 | awk -F ': ' '{for(i=2;i<=NF;++i)print $i}')
@@ -311,15 +325,13 @@ function directory_check () {
         #Dirty horrible global variable hack
         SHOW_SONGSTRING=$(echo "${ALBUM} -- ${ARTIST}")
 
-        
+        # comparing the hash of found covers; if all are equal, then...
         if [ $FOUND_COVERS -gt 1 ];then        
             find "${TMPDIR}" -name '*FOUND_COVER.jpeg' -printf '%p\n' | xargs -I {} realpath {} > "${testlist}"
             testsha=$(shasum $(cat ${testlist}|shuf) | awk '{print $1}')
             COMPAREFAIL=0
-            echo "${testsha}"
             while read -r line; do
                 testingsha=$(shasum ${line} | awk '{print $1}')
-                echo "${testingsha}"
                 if [[ "${testingsha}" == "${testsha}" ]];then
                     COMPAREFAIL=$((COMPAREFAIL+1))
                 fi
@@ -375,7 +387,11 @@ function directory_check () {
                 find "${SONGDIR}" -name '*.mp3' -printf '"%p"\n' | xargs -I {} realpath {} > "${songlist}"
                 while read -r line; do
                     if [ $SAFETY -eq 0 ];then 
-                        eyeD3 --add-image="${canon_cover}":FRONT_COVER "${line}" 2>/dev/null
+                        if [ $LOUD -eq 1 ];then
+                            eyeD3 --add-image="${canon_cover}":FRONT_COVER "${line}"
+                        else
+                            eyeD3 --add-image="${canon_cover}":FRONT_COVER "${line}" 2> /dev/null 1> /dev/null
+                        fi
                     else
                         echo "### SAFETY: eyeD3 --add-image=${canon_cover}:FRONT_COVER ${line} 2>/dev/null"
                     fi
