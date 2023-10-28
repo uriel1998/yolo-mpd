@@ -11,8 +11,8 @@
 #  Licensed under the MIT license
 #
 ##############################################################################
-
-
+# Ping sound from
+# https://freesound.org/people/MATRIXXX_/sounds/444918/
 # Test if NO cover is found anywhere to check
 # quiet down some of the output (during writing)
 # touch to restore original file dates when writing to MP3
