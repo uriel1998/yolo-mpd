@@ -116,16 +116,16 @@ function extract_cover () {
 
 function search_for_cover () {
  
-    echo "HI"
+ 
     rm -rf "${TMPDIR}/*FOUND_COVER.jpeg"   
     FOUND_COVERS=0
     searchsonglist=$(mktemp)
     ARTIST=""
-    ALBUM=""
-    
+    ALBUM=""  
+ 
     # put it all into another list to manage
     if [ -d "${1}" ];then
-        find "${SONGDIR}" -name '*.mp3' -printf '%p\n' > "${searchsonglist}"
+        find "${1}" -name '*.mp3' -printf '%p\n' > "${searchsonglist}"
         while read -r line; do
             tempstring=$(basename ${line})
         done < "${searchsonglist}"
@@ -137,16 +137,19 @@ function search_for_cover () {
         SONGFILE="${line}"
         if [ -s "${SONGFILE}" ];then 
             songdata=$(ffprobe "$SONGFILE" 2>&1)
+            loud "${line}"
             # big long grep string to avoid all the possible frakups I found, lol
             tARTIST=$(echo "$songdata" | grep "album_artist" | grep -v "mp3," | head -1 | awk -F ': ' '{for(i=2;i<=NF;++i)print $i}')
             if [ "$ARTIST" == "" ];then
                 ARTIST=$(echo "$songdata" | grep "artist" | grep -v "mp3," | head -1 | awk -F ': ' '{for(i=2;i<=NF;++i)print $i}')
             fi
             tALBUM=$(echo "$songdata" | grep "album" | head -1 | awk -F ': ' '{for(i=2;i<=NF;++i)print $i}' | tr '\n' ' ')
-            tARTIST=$(trim "$ARTIST")
-            tALBUM=$(trim "$ALBUM")
+
+            echo "${ALBUM}:${tALBUM} -- ${ARTIST}:{tARTIST}"
             if [[ "${tALBUM}" != "${ALBUM}" ]] || [[ "${tARTIST}" != "${ARTIST}" ]];then
                 # there were unequal values found, re-attempt search.
+                ALBUM="${tALBUM}"
+                ARTIST="${tARTIST}"
 
                 ##########################################################################
                 # Attempt to get coverart from CoverArt Archive
@@ -161,9 +164,9 @@ function search_for_cover () {
                     API_URL="https://coverartarchive.org/release/$MBID/front"
                     IMG_URL=$(curl "$API_URL" | awk -F ': ' '{print $2}')
                     if [ $LOUD -eq 1 ];then
-                        wget --timeout=10 --quiet "${IMG_URL}" -O "$TMPDIR/MusicBrains_DL.jpg"
+                        wget --timeout=15 --quiet "${IMG_URL}" -O "$TMPDIR/MusicBrains_DL.jpg"
                     else
-                        wget --timeout=10 --quiet "${IMG_URL}" -O "$TMPDIR/MusicBrains_DL.jpg" 2>/dev/null 1>/dev/null
+                        wget --timeout=15 --quiet "${IMG_URL}" -O "$TMPDIR/MusicBrains_DL.jpg" 2>/dev/null 1>/dev/null
                     fi
                     
                     if [ ! -s "$TMPDIR/MusicBrains_DL.jpg" ];then
@@ -200,6 +203,10 @@ function search_for_cover () {
                 rm "$TMPDIR/FRONT_COVER.jpeg"
                 sacad_bin=$(which sacad)
                 if [ -f "${sacad_bin}" ];then 
+                    timeout_bin=$(which timeout)  # sacad doesn't have a timeout...
+                    if [ -f "${timeout_bin}" ];then
+                        sacad_bin=$(echo "${timeout_bin} 15 ${sacad_bin}")
+                    fi
                     exec_string=$(printf "%s \"%s\" \"%s\" 512 %s/FRONT_COVER.jpeg" "${sacad_bin}" "${ARTIST}" "${ALBUM}" "$TMPDIR")
                     if [ $LOUD -eq 1 ];then
                         eval "$exec_string" 
@@ -231,7 +238,6 @@ function search_for_cover () {
         fi
     fi
     echo "${canon_cover}"
-
 }
 
 function show_compare_images () {
@@ -367,7 +373,7 @@ function directory_check () {
         fi
         #Dirty horrible global variable hack
         SHOW_SONGSTRING=$(echo "${ALBUM} -- ${ARTIST}")
-
+        echo "$FOUND_COVERS"
         if [ $FOUND_COVERS -eq 1 ];then
             if [ $AUTOEMBED -eq 1 ];then
                 canon_cover="${TMPDIR}/1FOUND_COVER.jpeg"
@@ -381,7 +387,9 @@ function directory_check () {
             fi
         fi
 
-        if [ $FOUND_COVERS -eq 0 ];then 
+        if [[ $FOUND_COVERS -eq 0 ]];then 
+            loud "${SONGDIR}"
+            search_for_cover "${SONGDIR}"
             canon_cover=$(search_for_cover "${SONGDIR}")
             canon_cover=$(echo "${canon_cover}" | head -n 1)
         fi
@@ -406,7 +414,7 @@ function directory_check () {
                 # the head line below fixes it, anyway...
                 canon_cover=$(echo "${canon_cover}" | head -n 1)
                 if [ ! -s "${canon_cover}" ]; then
-                    #export "${SONGDIR}"
+                    loud "${SONGDIR}"
                     canon_cover=$(search_for_cover "${SONGDIR}")
                     canon_cover=$(echo "${canon_cover}" | head -n 1)
                 fi
