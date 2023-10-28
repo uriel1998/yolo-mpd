@@ -116,6 +116,7 @@ function extract_cover () {
 
 function search_for_cover () {
  
+    echo "HI"
     rm -rf "${TMPDIR}/*FOUND_COVER.jpeg"   
     FOUND_COVERS=0
     searchsonglist=$(mktemp)
@@ -367,6 +368,24 @@ function directory_check () {
         #Dirty horrible global variable hack
         SHOW_SONGSTRING=$(echo "${ALBUM} -- ${ARTIST}")
 
+        if [ $FOUND_COVERS -eq 1 ];then
+            if [ $AUTOEMBED -eq 1 ];then
+                canon_cover="${TMPDIR}/1FOUND_COVER.jpeg"
+            else
+                canon_cover=$(show_compare_images "${TMPDIR}/1FOUND_COVER.jpeg")
+                canon_cover=$(echo "${canon_cover}" | head -n 1)
+            fi
+            if [ ! -f "${canon_cover}" ]; then
+                canon_cover=$(search_for_cover "${SONGDIR}")
+                canon_cover=$(echo "${canon_cover}" | head -n 1)
+            fi
+        fi
+
+        if [ $FOUND_COVERS -eq 0 ];then 
+            canon_cover=$(search_for_cover "${SONGDIR}")
+            canon_cover=$(echo "${canon_cover}" | head -n 1)
+        fi
+
         # comparing the hash of found covers; if all are equal, then...
         if [ $FOUND_COVERS -gt 1 ];then        
             find "${TMPDIR}" -name '*FOUND_COVER.jpeg' -printf '%p\n' | xargs -I {} realpath {} > "${testlist}"
@@ -392,25 +411,8 @@ function directory_check () {
                     canon_cover=$(echo "${canon_cover}" | head -n 1)
                 fi
             fi
-        else
-            if [ $FOUND_COVERS -eq 1 ];then
-                if [ $AUTOEMBED -eq 1 ];then
-                    canon_cover="${TMPDIR}/1FOUND_COVER.jpeg"
-                else
-                    canon_cover=$(show_compare_images "${TMPDIR}/1FOUND_COVER.jpeg")
-                    canon_cover=$(echo "${canon_cover}" | head -n 1)
-                fi
-                if [ ! -f "${canon_cover}" ]; then
-                    canon_cover=$(search_for_cover "${SONGDIR}")
-                    canon_cover=$(echo "${canon_cover}" | head -n 1)
-                fi
-            else
-                # no cover found
-                canon_cover=$(search_for_cover "${SONGDIR}")
-                canon_cover=$(echo "${canon_cover}" | head -n 1)
-            fi
         fi
-        
+
         if [ -s "${canon_cover}" ]; then # this will need to be specified when also testing for what was embedded cover
                 # synchronizing files
             if [ "${canon_cover}" != "${SONGDIR}/cover.jpg" ];then
