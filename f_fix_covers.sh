@@ -32,6 +32,7 @@ AUTOEMBED=0 # embed images in mp3
 REMOVE=0    # Remove images
 LOUD=0      # verbose
 ALERT=0     # play audible ping when user input needed
+CHECKALL=0  # even if they all match, search & check anyway.
 SONGDIR=""
 
 export SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
@@ -49,6 +50,7 @@ function display_help {
     echo "-a|--autoembed    : Embed found, selected covers into MP3s."
     echo "-p|--ping         : Play audible tone when user input needed."    
     echo "-r|--remove       : Remove existing embedded images in MP3s when cover found."        
+    echo "-c|--checkall     : Manually verify all album covers  ALL OF THEM."        
     echo "-s|--safe         : Just say what it would do, do not actually do operations."
     echo "-l|--loud         : Verbose output."    
     echo "-d|--dir [DIR]    : Specify the music directory to scan."
@@ -138,7 +140,6 @@ function search_for_cover () {
         SONGFILE="${line}"
         if [ -s "${SONGFILE}" ];then 
             songdata=$(ffprobe "$SONGFILE" 2>&1)
-            loud "${line}"
             # big long grep string to avoid all the possible frakups I found, lol
             tARTIST=$(echo "$songdata" | grep "album_artist" | grep -v "mp3," | head -1 | awk -F ': ' '{for(i=2;i<=NF;++i)print $i}')
             if [ "$ARTIST" == "" ];then
@@ -146,7 +147,6 @@ function search_for_cover () {
             fi
             tALBUM=$(echo "$songdata" | grep "album" | head -1 | awk -F ': ' '{for(i=2;i<=NF;++i)print $i}' | tr '\n' ' ')
 
-            echo "${ALBUM}:${tALBUM} -- ${ARTIST}:{tARTIST}"
             if [[ "${tALBUM}" != "${ALBUM}" ]] || [[ "${tARTIST}" != "${ARTIST}" ]];then
                 # there were unequal values found, re-attempt search.
                 ALBUM="${tALBUM}"
@@ -374,37 +374,47 @@ function directory_check () {
         fi
         #Dirty horrible global variable hack
         SHOW_SONGSTRING=$(echo "${ALBUM} -- ${ARTIST}")
-        echo "$FOUND_COVERS"
+        canon_cover=""
+
         if [ $FOUND_COVERS -eq 1 ];then
-            if [ $AUTOEMBED -eq 1 ];then
-                canon_cover="${TMPDIR}/1FOUND_COVER.jpeg"
+            if [ $CHECKALL -eq 0 ];then 
+                if [ $AUTOEMBED -eq 1 ];then
+                    canon_cover="${TMPDIR}/1FOUND_COVER.jpeg"
+                else
+                    canon_cover=$(show_compare_images "${TMPDIR}/1FOUND_COVER.jpeg")
+                    canon_cover=$(echo "${canon_cover}" | head -n 1)
+                fi
+                if [ ! -f "${canon_cover}" ]; then
+                    canon_cover=$(search_for_cover "${SONGDIR}")
+                    canon_cover=$(echo "${canon_cover}" | head -n 1)
+                fi
             else
-                canon_cover=$(show_compare_images "${TMPDIR}/1FOUND_COVER.jpeg")
-                canon_cover=$(echo "${canon_cover}" | head -n 1)
-            fi
-            if [ ! -f "${canon_cover}" ]; then
-                canon_cover=$(search_for_cover "${SONGDIR}")
-                canon_cover=$(echo "${canon_cover}" | head -n 1)
+                # so that the comparing dialogue is kicked in
+                FOUND_COVERS=$((FOUND_COVERS+1))
+                canon_cover=""
             fi
         fi
 
         if [[ $FOUND_COVERS -eq 0 ]];then 
             loud "${SONGDIR}"
-            search_for_cover "${SONGDIR}"
             canon_cover=$(search_for_cover "${SONGDIR}")
             canon_cover=$(echo "${canon_cover}" | head -n 1)
         fi
 
         # comparing the hash of found covers; if all are equal, then...
-        if [ $FOUND_COVERS -gt 1 ];then        
+        
+        if [ $FOUND_COVERS -gt 1 ] && [ ! -s "${canon_cover}" ];then        
             find "${TMPDIR}" -name '*FOUND_COVER.jpeg' -printf '%p\n' | xargs -I {} realpath {} > "${testlist}"
             testsha=$(shasum $(cat ${testlist}|shuf) | awk '{print $1}')
-            COMPAREFAIL=0
+            testsha=$(echo "${testsha}" | head -n 1 )
+            
+            # If compareall is on, it will automatically kick in the comparison
+            COMPAREFAIL=$CHECKALL
             while read -r line; do
                 testingsha=$(shasum ${line} | awk '{print $1}')
-                
+                testingsha=$(echo "${testingsha}" | head -n 1)
                 if [[ "${testingsha}" != "${testsha}" ]];then
-                    echo "${testingsha}" @@ "${testsha}"
+                    echo "@${testingsha}@@${testsha}@"
                     COMPAREFAIL=$((COMPAREFAIL+1))
                 fi
             done < "${testlist}"
@@ -478,6 +488,8 @@ function directory_check () {
         -l|--loud) LOUD=1
             shift ;;                  
         -r|--remove) REMOVE=1
+            shift ;;                              
+        -c|--checkall) CHECKALL=1
             shift ;;                              
         -d|--dir) 
             shift 
