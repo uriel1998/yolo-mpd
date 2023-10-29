@@ -386,7 +386,6 @@ function directory_check () {
         canon_cover=""
 
         if [ $FOUND_COVERS -eq 1 ];then
-            echo "HI"
             if [ $CHECKALL -eq 0 ];then 
                 if [ $AUTOEMBED -eq 1 ];then
                     canon_cover="${TMPDIR}/1FOUND_COVER.jpeg"
@@ -463,19 +462,31 @@ function directory_check () {
             if [ $AUTOEMBED -eq 1 ];then
                 find "${SONGDIR}" -name '*.mp3' -printf '"%p"\n' | xargs -I {} realpath {} > "${songlist}"
                 while read -r line; do
-                    if [ $SAFETY -eq 0 ];then 
-                        filetime=$(stat -c '%y' "${line}")
-                        if [ $LOUD -eq 1 ];then
-                            if [ $REMOVE -eq 1 ]; then eyeD3 --quiet --remove-all-images "${line}" ;fi
-                            eyeD3 --quiet --add-image="${canon_cover}":FRONT_COVER:Cover "${line}"
-                        else
-                            if [ $REMOVE -eq 1 ];then eyeD3 --quiet --remove-all-images "${line}" 2>/dev/null 1>/dev/null ; fi
-                            eyeD3 --quiet --add-image="${canon_cover}":FRONT_COVER:Cover "${line}" 
-                        fi
-                        touch -d "${filetime}" "${line}"
+                    # if comparefail was not tripped, the only possible way the cover is 
+                    # different is if it's missing, to avoid extra writes.
+                    if [ $COMPAREFAIL -eq 0 ];then
+                        songdata=$(ffprobe "${line}" 2>&1)
+                        CA_Embedded=$(echo "$songdata" | grep Cover | grep -c "front")
                     else
-                        if [ $REMOVE -eq 1 ];then echo "### SAFETY: eyeD3 --quiet --remove-all-images ${line}";fi
-                        echo "### SAFETY: eyeD3 --quiet --add-image=${canon_cover}:FRONT_COVER ${line}"
+                        CA_Embedded=0
+                    fi
+                    
+                    if [ $CA_Embedded -eq 0 ];then
+                        # either comparefail failed or there is no embedded cover.
+                        if [ $SAFETY -eq 0 ];then 
+                            filetime=$(stat -c '%y' "${line}")
+                            if [ $LOUD -eq 1 ];then
+                                if [ $REMOVE -eq 1 ]; then eyeD3 --quiet --remove-all-images "${line}" ;fi
+                                eyeD3 --quiet --add-image="${canon_cover}":FRONT_COVER:Cover "${line}"
+                            else
+                                if [ $REMOVE -eq 1 ];then eyeD3 --quiet --remove-all-images "${line}" 2>/dev/null 1>/dev/null ; fi
+                                eyeD3 --quiet --add-image="${canon_cover}":FRONT_COVER:Cover "${line}" 
+                            fi
+                            touch -d "${filetime}" "${line}"
+                        else
+                            if [ $REMOVE -eq 1 ];then echo "### SAFETY: eyeD3 --quiet --remove-all-images ${line}";fi
+                            echo "### SAFETY: eyeD3 --quiet --add-image=${canon_cover}:FRONT_COVER ${line}"
+                        fi
                     fi
                 done < "${songlist}"
                 rm "${songlist}" 2>/dev/null 1>/dev/null
