@@ -14,8 +14,6 @@
 # Ping sound from
 # https://freesound.org/people/MATRIXXX_/sounds/444918/
 
-# Test if NO cover is found anywhere to check -- it will, but loops through directory/choices twice...
-
 # touch to restore original file dates when writing to MP3
 
 
@@ -50,7 +48,8 @@ function display_help {
     echo "-a|--autoembed    : Embed found, selected covers into MP3s."
     echo "-p|--ping         : Play audible tone when user input needed."    
     echo "-r|--remove       : Remove existing embedded images in MP3s when cover found."        
-    echo "-c|--checkall     : Manually verify all album covers  ALL OF THEM."        
+    echo "-c|--checkall     : Manually verify all album covers, even if only one."
+    echo "-e|--everything   : Check online for covers for every album."        
     echo "-s|--safe         : Just say what it would do, do not actually do operations."
     echo "-l|--loud         : Verbose output."    
     echo "-d|--dir [DIR]    : Specify the music directory to scan."
@@ -58,10 +57,12 @@ function display_help {
 
 function cleanup {
     find "$TMPDIR/" -iname "OTHER*"  -exec rm -f {} \;
-    find "$TMPDIR/" -iname "FRONT_COVER*"  -exec rm -f {} \;
+    find "$TMPDIR/" -iname "*FRONT_COVER*"  -exec rm -f {} \;
     find "$TMPDIR/" -iname "cover*"  -exec rm -f {} \;    
     find "$TMPDIR/" -iname "ICON*"  -exec rm -f {} \;  
     find "$TMPDIR/" -iname "ILLUSTRATION*"  -exec rm -f {} \;  
+    rm "${TMPDIR}/3FOUND_COVER.jpeg" 2>/dev/null 1>/dev/null
+    rm "${TMPDIR}/out_montage.jpg" 2>/dev/null 1>/dev/null
 }
 
 
@@ -88,11 +89,11 @@ function extract_cover () {
     SONGDIR="${2}"
     cleanup
     loud "Extracting cover from ${SONGFILE}"
-    
-    eyeD3 --write-images="$TMPDIR" "$SONGFILE" 1>/dev/null 2>/dev/null
+    eyeD3 --quiet --write-images="${TMPDIR}" "$SONGFILE" 1>/dev/null 2>/dev/null
     if [ -f "$TMPDIR/FRONT_COVER.png" ]; then
         loud "### Converting PNG into JPG"
         convert "$TMPDIR/FRONT_COVER.png" "$TMPDIR/FRONT_COVER.jpeg"
+        rm "$TMPDIR/FRONT_COVER.png" 1>/dev/null 2>/dev/null
     fi
     # Catching when it's sometimes stored as "Other" tag instead of FRONT_COVER
     # but only when FRONT_COVER doesn't exist.
@@ -106,9 +107,11 @@ function extract_cover () {
         fi
         if [ -f "$TMPDIR/OTHER.jpeg" ]; then
             cp "$TMPDIR/OTHER.jpeg" "$TMPDIR/FRONT_COVER.jpeg"
+            rm "$TMPDIR/OTHER.jpeg"
         fi
         if [ -f "$TMPDIR/FRONT_COVER.jpg" ]; then
             cp "$TMPDIR/FRONT_COVER.jpg" "$TMPDIR/FRONT_COVER.jpeg"
+            rm "$TMPDIR/FRONT_COVER.jpg"
         fi            
     fi  
     if [ -f "$TMPDIR/FRONT_COVER.jpeg" ]; then
@@ -164,10 +167,15 @@ function search_for_cover () {
                 if [ "$MBID" != '' ] && [ "$MBID" != 'null' ];then
                     API_URL="https://coverartarchive.org/release/$MBID/front"
                     IMG_URL=$(curl "$API_URL" | awk -F ': ' '{print $2}')
+                    wget_bin=$(which wget)
+                    if [ -f "${timeout_bin}" ];then
+                        wget_bin=$(echo "${timeout_bin} 15 --kill-after=30 ${wget_bin}")
+                    fi
                     if [ $LOUD -eq 1 ];then
-                        wget --timeout=15 --quiet "${IMG_URL}" -O "$TMPDIR/MusicBrains_DL.jpg"
+                    
+                        "${wget_bin}" --timeout=15 --quiet "${IMG_URL}" -O "$TMPDIR/MusicBrains_DL.jpg"
                     else
-                        wget --timeout=15 --quiet "${IMG_URL}" -O "$TMPDIR/MusicBrains_DL.jpg" 2>/dev/null 1>/dev/null
+                        "${wget_bin}" --timeout=15 --quiet "${IMG_URL}" -O "$TMPDIR/MusicBrains_DL.jpg" 2>/dev/null 1>/dev/null
                     fi
                     
                     if [ ! -s "$TMPDIR/MusicBrains_DL.jpg" ];then
@@ -195,20 +203,20 @@ function search_for_cover () {
                         FOUND_COVERS=$((FOUND_COVERS+1))
                         convert "$TMPDIR/cover.tmp" "$TMPDIR/Glyrc_DL.jpg"
                         mv "$TMPDIR/Glyrc_DL.jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
-                        rm "$TMPDIR/cover.tmp"
+                        rm "$TMPDIR/cover.tmp" 2>/dev/null 1>/dev/null
                     fi
                 fi
                 ##########################################################################
                 # Attempt to find cover art via sacad if it's in $PATH
                 ##########################################################################
-                rm "$TMPDIR/FRONT_COVER.jpeg"
+                rm "$TMPDIR/FRONT_COVER.jpeg" 2>/dev/null 1>/dev/null
                 sacad_bin=$(which sacad)
                 if [ -f "${sacad_bin}" ];then 
                     timeout_bin=$(which timeout)  # sacad doesn't have a timeout...
                     if [ -f "${timeout_bin}" ];then
                         sacad_bin=$(echo "${timeout_bin} 15 ${sacad_bin}")
                     fi
-                    exec_string=$(printf "%s \"%s\" \"%s\" 512 %s/FRONT_COVER.jpeg" "${sacad_bin}" "${ARTIST}" "${ALBUM}" "$TMPDIR")
+                    exec_string=$(printf "%s \"%s\" \"%s\" 512 %s/FRONT_COVER.jpeg" "${sacad_bin}" "${ARTIST}" "${ALBUM}" "${TMPDIR}")
                     if [ $LOUD -eq 1 ];then
                         eval "$exec_string" 
                     else
@@ -335,7 +343,10 @@ function directory_check () {
         FOUND_COVERS=0
         EmbeddedChecksums=""
         while read -r line; do
+            rm -rf "${TMPDIR}/*.jpeg" 2>/dev/null 1>/dev/null
+            rm -rf "${TMPDIR}/*.jpg" 2>/dev/null 1>/dev/null
             loud "Examining ${line}"
+            
             SONGFILE="${line}"
             songdata=$(ffprobe "$SONGFILE" 2>&1)
             ARTIST=$(echo "$songdata" | grep "album_artist" | grep -v "mp3," | head -1 | awk -F ': ' '{for(i=2;i<=NF;++i)print $i}')
@@ -345,8 +356,6 @@ function directory_check () {
             ALBUM=$(echo "$songdata" | grep "album" | head -1 | awk -F ': ' '{for(i=2;i<=NF;++i)print $i}' | tr '\n' ' ')
             ARTIST=$(trim "$ARTIST")
             ALBUM=$(trim "$ALBUM")
-            
-            
             # big long grep string to avoid all the possible frakups I found, lol
             CA_Embedded=$(echo "$songdata" | grep Cover | grep -c "front")
             if [ "${CA_Embedded}" -gt 0 ];then
@@ -377,6 +386,7 @@ function directory_check () {
         canon_cover=""
 
         if [ $FOUND_COVERS -eq 1 ];then
+            echo "HI"
             if [ $CHECKALL -eq 0 ];then 
                 if [ $AUTOEMBED -eq 1 ];then
                     canon_cover="${TMPDIR}/1FOUND_COVER.jpeg"
@@ -395,10 +405,11 @@ function directory_check () {
             fi
         fi
 
-        if [[ $FOUND_COVERS -eq 0 ]];then 
+        if [[ $FOUND_COVERS -eq 0 ]] || [[ $EVERYTHING -eq 1 ]];then 
             loud "${SONGDIR}"
             canon_cover=$(search_for_cover "${SONGDIR}")
             canon_cover=$(echo "${canon_cover}" | head -n 1)
+            FOUND_COVERS=0
         fi
 
         # comparing the hash of found covers; if all are equal, then...
@@ -414,7 +425,6 @@ function directory_check () {
                 testingsha=$(shasum ${line} | awk '{print $1}')
                 testingsha=$(echo "${testingsha}" | head -n 1)
                 if [[ "${testingsha}" != "${testsha}" ]];then
-                    echo "@${testingsha}@@${testsha}@"
                     COMPAREFAIL=$((COMPAREFAIL+1))
                 fi
             done < "${testlist}"
@@ -429,11 +439,13 @@ function directory_check () {
                     canon_cover=$(search_for_cover "${SONGDIR}")
                     canon_cover=$(echo "${canon_cover}" | head -n 1)
                 fi
+            else
+                # all of the covers there are equal
+                canon_cover=$(find "${TMPDIR}" -name '*FOUND_COVER.jpeg' -printf '%p\n' | head -n 1)
             fi
         fi
-
         if [ -s "${canon_cover}" ]; then # this will need to be specified when also testing for what was embedded cover
-                # synchronizing files
+            # synchronizing files
             if [ "${canon_cover}" != "${SONGDIR}/cover.jpg" ];then
                 if [ $SAFETY -eq 0 ];then 
                     cp -f "${canon_cover}" "${SONGDIR}/cover.jpg"
@@ -454,21 +466,28 @@ function directory_check () {
                     if [ $SAFETY -eq 0 ];then 
                         filetime=$(stat -c '%y' "${line}")
                         if [ $LOUD -eq 1 ];then
-                            if [ $REMOVE -eq 1 ]; then eyeD3 --remove-all-images "${line}" ;fi
-                            eyeD3 --add-image="${canon_cover}":FRONT_COVER:Cover "${line}"
+                            if [ $REMOVE -eq 1 ]; then eyeD3 --quiet --remove-all-images "${line}" ;fi
+                            eyeD3 --quiet --add-image="${canon_cover}":FRONT_COVER:Cover "${line}"
                         else
-                            if [ $REMOVE -eq 1 ];then eyeD3 --remove-all-images "${line}" 2>/dev/null 1>/dev/null ; fi
-                            eyeD3 --add-image="${canon_cover}":FRONT_COVER:Cover "${line}" 
+                            if [ $REMOVE -eq 1 ];then eyeD3 --quiet --remove-all-images "${line}" 2>/dev/null 1>/dev/null ; fi
+                            eyeD3 --quiet --add-image="${canon_cover}":FRONT_COVER:Cover "${line}" 
                         fi
                         touch -d "${filetime}" "${line}"
                     else
-                        if [ $REMOVE -eq 1 ];then echo "### SAFETY: eyeD3 --remove-all-images ${line}";fi
-                        echo "### SAFETY: eyeD3 --add-image=${canon_cover}:FRONT_COVER ${line}"
+                        if [ $REMOVE -eq 1 ];then echo "### SAFETY: eyeD3 --quiet --remove-all-images ${line}";fi
+                        echo "### SAFETY: eyeD3 --quiet --add-image=${canon_cover}:FRONT_COVER ${line}"
                     fi
                 done < "${songlist}"
-                rm "${songlist}"
+                rm "${songlist}" 2>/dev/null 1>/dev/null
+                rm -rf "${TMPDIR}/*.jpeg" 2>/dev/null 1>/dev/null
+                rm -rf "${TMPDIR}/*.jpg" 2>/dev/null 1>/dev/null
             fi
+            rm "${songlist}" 2>/dev/null 1>/dev/null
+            rm -rf "${TMPDIR}/*.jpeg" 2>/dev/null 1>/dev/null
+            rm -rf "${TMPDIR}/*.jpg" 2>/dev/null 1>/dev/null            
         fi
+        rm -rf "${TMPDIR}/*.jpeg" 2>/dev/null 1>/dev/null
+        rm -rf "${TMPDIR}/*.jpg" 2>/dev/null 1>/dev/null
     done < "${dirlist}"
     rm "${dirlist}"
 }
@@ -485,6 +504,8 @@ function directory_check () {
             shift ;;
         -s|--safe) SAFETY=1
             shift ;;      
+        -e|--everything) EVERYTHING=1
+            shift ;;                  
         -l|--loud) LOUD=1
             shift ;;                  
         -r|--remove) REMOVE=1
