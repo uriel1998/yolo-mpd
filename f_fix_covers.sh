@@ -60,8 +60,8 @@ function cleanup {
     find "$TMPDIR/" -iname "*FRONT_COVER*"  -exec rm -f {} \;
     find "$TMPDIR/" -iname "cover*"  -exec rm -f {} \;    
     find "$TMPDIR/" -iname "ICON*"  -exec rm -f {} \;  
-    find "$TMPDIR/" -iname "ILLUSTRATION*"  -exec rm -f {} \;  
-    rm "${TMPDIR}/3FOUND_COVER.jpeg" 2>/dev/null 1>/dev/null
+    find "$TMPDIR/" -iname "ILLUSTRATION*"  -exec rm -f {} \;
+    find "$TMPDIR/" -iname "*FOUND_COVER*"  -exec rm -f {} \;  
     rm "${TMPDIR}/out_montage.jpg" 2>/dev/null 1>/dev/null
 }
 
