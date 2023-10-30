@@ -6,7 +6,7 @@
 #  f'in fix the covers
 #  Using YAD and other things to finally frakking get cover art 
 #  properly sorted. 
-#  YAD = https://sourceforge.net/projects/yad-dialog/
+#
 #  (c) Steven Saus 2023
 #  Licensed under the MIT license
 #

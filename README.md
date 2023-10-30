@@ -6,11 +6,8 @@ Various MP3 and MPD tweaks, tips, tools, and scripts I've put together or found 
 ## Contents
   1. [stream_to_mpd](stream_to_mpd)
 
-  2. [ffixer](ffixer)
 
-  3. [mp3-date-to-year.sh](mp3-date-to-year.sh)
-
-  4. [ffixer-covers](ffixer-covers)
+f_fix_covers
 
   5. [mpdcontrol.sh](mpdcontrol.sh)
 
@@ -26,7 +23,6 @@ Various MP3 and MPD tweaks, tips, tools, and scripts I've put together or found 
 
   11. [mediakey.sh](mediakey.sh)
 
-  12. [yad_show_mpd.sh](yad_show_mpd.sh)
 
 
 # stream_to_mpd  
@@ -46,48 +42,44 @@ Usage: `stream_to_mpd [OPTIONS] [STREAM_URL]`
 `--native` : Throw the result to streamlink (probably not needed, but hey)  
 `--bookmarks` : use `zenity` to choose a hardcoded bookmark instead of a stream URL  
 
-# ffixer
+# f_fix_covers
 
 Dependencies: 
  * [eye3D](http://eyed3.nicfit.net/)
+ * `timeout` coreutils
+ 
+ 
+ * #  YAD = https://sourceforge.net/projects/yad-dialog/
+ * mpg123 or mplayer or mpv
+ * imagemagick
  * `grep` command-line tool. `grep` can be found in the `grep` package on major Linux distributions.
  * `sed` command-line tool. `sed` can be found in the `sed` package on major Linux distributions.
+ * ffprobe (from ffmpeg) for song information
+ 
+ -- for getting things online 
+ * wget
+ * curl
 
-This utility does a few things automatically that I like to keep my 
-collection in order.  
+ * [glyr](https://github.com/sahib/glyr)
+ * [eyeD3](http://eyed3.nicfit.net/)
+ * [sacad](https://github.com/desbma/sacad)
 
-First, it finds MP3 files that have song titles like "Scratches All Down My Back (Buckcherry vs.Toto)" and moves the 
-artists that are in the parentheses or brackets to the "Album Artist" field. Searches recursively from the directory you run it in, and stores a CSV of changes made in your $HOME directory. Use --dryrun as an option first if you like.
+Usage: f_fix_covers.sh [Music Directory]
+    
+    Will search the directory and synchronize `cover.jpg` and `folder.jpg` with embedded coverart in MP3s. 
+    Will present all alternative covers and request which one to choose. 
+    
+    -h|--help         : This.
+    -a|--autoembed    : Embed found, selected covers into MP3s.
+    -p|--ping         : Play audible tone when user input needed.
+    -r|--remove       : Remove existing embedded images in MP3s when cover found.
+    -c|--checkall     : Manually verify all album covers, even if only one.
+    -e|--everything   : Check online for covers for every album.
+    -s|--safe         : Just say what it would do, do not actually do operations.
+    -l|--loud         : Verbose output.
+    -d|--dir [DIR]    : Specify the music directory to scan.
 
-Second, it fills in the album artist and composer fields if they are empty, preferentially using the artist tag. I like this because different music players sort "artists" using different fields.
-
-Third, it standardizes all the "date" fields (release date, original 
-release date, and recording date) to YYYY *only* and fills in any empty fields.
-
-Finally, it does all this while preserving the original file modification time so that your collection isn't a flying mess of "new" tracks.
-
-# mp3-date-to-year.sh
-
-Dependencies:
-
- * [eye3D](http://eyed3.nicfit.net/)
-
- A simple script that only changes the date fields (release date, original  release date, recording date) to *just* the year field if they exist.
-
-# ffixer_covers
-
-This script walks recursively from the directory it starts from and ensures there are *both* `cover.jpg` and `folder.jpg` files. If none exists in the directory, it attempts to extract them from the ID3 tags using `eyeD3`. 
-
-It will also attempt (if not found in any of the above) to find a cover on the interwebs using `sacad`
-
-
-Dependencies:
-
-* ffprobe (from ffmpeg) for song information
-* [glyr](https://github.com/sahib/glyr)
-* [eyeD3](http://eyed3.nicfit.net/)
-* [mpc](http://git.musicpd.org/cgit/master/mpc.git/)
-* [sacad](https://github.com/desbma/sacad)
+    point at a directory. Will synchronize your coverfiles, search on the internet, and prompt you if there's something missing. Also will embed in MP3s.
 
 # mpdcontrol.sh
 
