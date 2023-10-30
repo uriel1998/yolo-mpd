@@ -5,17 +5,30 @@ Various MP3 and MPD tweaks, tips, tools, and scripts I've put together or found 
 
 ## Contents
   1. [stream_to_mpd](stream_to_mpd)
-  2. [ffixer](ffixer)
-  3. [ffixer-covers](ffixer-covers)
-  4. [mpdcontrol.sh](mpdcontrol.sh)
-  5. [terminal-multiplexer](terminal-multiplexer)
-  6. [bpmhelper](bpmhelper)
-  7. [mp3gainhelper](mp3gainhelper)
-  8. [webserver.covers.sh](webserver.covers.sh)
-  9. [terminalcovers.sh](terminalcovers.sh)
-  10. [mediakey.sh](mediakey.sh)
-  11. [mp3-date-to-year.sh](mp3-date-to-year.sh)
 
+  2. [f_fix_covers](f_fix_covers)
+
+  3. [yad_show_mpd](yad_show_mpd)
+
+  4. [mpdcontrol.sh](mpdcontrol.sh)
+
+  5. [terminal-multiplexer](terminal-multiplexer)
+
+  6. [bpmhelper](bpmhelper)
+
+  7. [mp3gainhelper](mp3gainhelper)
+
+  8. [terminal_multiplexer](terminal_multiplexer)
+
+  9. [bpmhelper.sh](bpmhelper.sh)
+
+  10. [mp3gainhelper.sh](mp3gainhelper.sh)
+
+  11. [webserver.covers.sh](webserver.covers.sh)
+
+  12. [terminalcovers.sh](terminalcovers.sh)
+
+  13. [mediakey.sh](mediakey.sh)
 
 # stream_to_mpd  
 
@@ -34,64 +47,94 @@ Usage: `stream_to_mpd [OPTIONS] [STREAM_URL]`
 `--native` : Throw the result to streamlink (probably not needed, but hey)  
 `--bookmarks` : use `zenity` to choose a hardcoded bookmark instead of a stream URL  
 
-# ffixer
+# f_fix_covers
 
-Dependencies: 
+This is to finally fix those f'in covers in your music directory and to 
+synchronize them between `cover.jpg`, `folder.jpg` and what's embedded in the file. 
+If the `cover.jpg`, `folder.jpg`, or embedded cover differ, it will present them
+to you (with an audible alarm) so that you can select the correct one. If you 
+choose none of them, it will search online for cover art.  
+
+If you use `--checkall`, it will prompt you to confirm each album cover, even if
+it all matches.
+
+You can also force it to search with each music directory using `--everything`. 
+Implies `--checkall` in practice, as the checksum of a downloaded cover *probably* 
+is slightly different than what you have. 
+
+You can point it at your *entire* music collection, or just at a *specific* album 
+directory.
+
+**This assumes that each directory contains the same album, even if the artists are different.**
+
+## Usage
+
+    `f_fix_covers.sh -d [PATH/TO/MUSIC] [OPTIONS]`
+
+### Options:
+    
+* `-h|--help         : This.`
+* `-a|--autoembed    : Embed found, selected covers into MP3s.`
+* `-p|--ping         : Play audible tone when user input needed.`
+* `-r|--remove       : Remove existing embedded images in MP3s when cover found.`
+* `-c|--checkall     : Manually verify all album covers, even if only one.`
+* `-e|--everything   : Check online for covers for every album.`
+* `-s|--safe         : Just say what it would do, do not actually do operations.`
+* `-l|--loud         : Verbose output.`
+* `-d|--dir [DIR]    : Specify the music directory to scan.`
+
+## Dependencies
  * [eye3D](http://eyed3.nicfit.net/)
- * `grep` command-line tool. `grep` can be found in the `grep` package on major Linux distributions.
- * `sed` command-line tool. `sed` can be found in the `sed` package on major Linux distributions.
+ * [glyr](https://github.com/sahib/glyr)
+ * [eyeD3](http://eyed3.nicfit.net/)
+ * [sacad](https://github.com/desbma/sacad)
+ * [YAD](https://sourceforge.net/projects/yad-dialog/) 
+ 
+ The following can be installed on Debian/Ubuntu based systems by:
+ `sudo apt install feh mpg123 imagemagick ffmpeg grep sed wget curl coreutils`.
+ 
+ * `feh` 
+ * `mpg123` or `mplayer` or `mpv`
+ * `imagemagick` 
+ * `ffprobe` from `ffmpeg`
+ * `grep` 
+ * `sed` 
+ * `wget` 
+ * `curl` 
+ * `timeout` from `coreutils`
+ 
+ 
+# yad_show_mpd
 
-This utility does a few things automatically that I like to keep my 
-collection in order.  
+# yad_show_mpd.sh
 
-First, it finds MP3 files that have song titles 
-like "Scratches All Down My Back (Buckcherry vs.Toto)" and moves the 
-artists that are in the parentheses or brackets to the "Album Artist" 
-field. Searches recursively from the directory you run it in, and 
-stores a CSV of changes made in your $HOME directory. Use --dryrun as 
-an option first if you like.
+This script -- which should also have an image file named `defaultcover.jpg` in 
+its directory -- requires [mpc](http://git.musicpd.org/cgit/master/mpc.git/), 
+[imagemagick](https://imagemagick.org/), and [YAD](https://sourceforge.net/projects/yad-dialog/) to 
+create a popup with the albumart and trackname of the currently playing song from 
+[MPD, the music player daemon](https://www.musicpd.org/).
 
-Second, it fills in the album artist and composer fields if they are 
-empty, preferentially using the artist tag. I like this because different 
-music players sort "artists" using different fields.
+It assumes your music directory is in `${HOME}/Music`, that your album art is 
+named either `cover.jpg` or `folder.jpg` and that `mpc` is already 
+set up correctly. The window will auto-close after 10 seconds.
 
-Third, it standardizes all the "date" fields (release date, original 
-release date, and recording date) to YYYY *only* and fills in any 
-empty fields.
-
-Finally, it does all this while preserving the original file 
-modification time so that your collection isn't a flying mess of "new" 
-tracks.
-
-# ffixer_covers
-
-This script walks recursively from the directory it starts from and 
-ensures there are *both* `cover.jpg` and `folder.jpg` files. If none 
-exists in the directory, it attempts to extract them from the ID3 tags. 
-
-It will also embed found cover art into the ID3 tags if none exists, and 
-will attempt (if not found in any of the above) to find a cover on the 
-interwebs. 
+It will attempt to use the environment variable `MPD_HOST`, and 
+if it is not found, will examine ${HOME}/.bashrc to see if it is set there (if a 
+non-login shell) and set it for the program. If you have a password set for MPD, 
+you *must* use `MPD_HOST=Password@host` for it to work.
 
 
-Dependencies:
+![output](https://github.com/uriel1998/yolo-mpd/raw/master/yad_show_mpd.png "What it looks like")
 
-* [glyr](https://github.com/sahib/glyr)
-* [eye3D](http://eyed3.nicfit.net/)
-* [mpc](http://git.musicpd.org/cgit/master/mpc.git/)
+
 
 # mpdcontrol.sh
 
-Select whether you want to choose a playlist, or by album, artist, or 
-genre. Clears playlist, adds what you chose, starts playing. The SSH 
-version is for exactly that, especially if you don't have `pick` on 
-that machine.
+Select whether you want to choose a playlist, or by album, artist, or genre. Clears playlist, adds what you chose, starts playing. The SSH version is for exactly that, especially if you don't have `pick` on that machine.
 
-Optionally, if `fzf` is installed on the system, it will seamlessly substitute 
-that program in, with the option to select multiple entries at once (use TAB). 
+Optionally, if `fzf` is installed on the system, it will seamlessly substitute that program in, with the option to select multiple entries at once (use TAB). 
 
-The `mpdcontrol_add.sh` file does *not* clear the queue so that you can add to 
-the existing playlist.
+The `mpdcontrol_add.sh` file does *not* clear the queue so that you can add to the existing playlist.
 
 Dependencies: 
 * [pick](https://github.com/thoughtbot/pick)
@@ -152,15 +195,9 @@ Dependencies
 
 # mp3gainhelper.sh
 
-Performs mp3gain analysis and writes to id3 tags. The MP3Gain utility 
-apparently writes by default to APE tags, which aren't used by MPD. 
-But apparently mp3gain has issues corrupting ID3 data if you write 
-directly to ID3 tags, and will just crash and abort if it runs into an 
-error instead of continuing onward.
+Performs mp3gain analysis and writes to id3 tags. The MP3Gain utility apparently writes by default to APE tags, which aren't used by MPD. While `mp3gain` no longer has issues corrupting ID3 data if you write directly to ID3 tags, it will crash and abort if it runs into an error instead of continuing onward. That and the options are a pain, so this helps.
 
-Accepts only one command line argument (optional) giving the directory 
-to analyze. Otherwise analyzes the current directory *and all 
-subdirectories*.
+Accepts only one command line argument (optional) giving the directory to analyze. Otherwise analyzes the current directory *and all subdirectories*.
 
 Dependencies: 
 * [mp3gain](http://mp3gain.sourceforge.net/)
@@ -201,9 +238,3 @@ One or more of the following:
 This script uses the MPRIS interface to control your media players.  
 Currently supported players include MPD, Pithos, Audacious, and Clementine
 
-# mp3-date-to-year.sh
-
- * [eye3D](http://eyed3.nicfit.net/)
-
- A simple script to will only change the date fields (release date, original 
- release date, recording date) to *just* the year field if they exist.

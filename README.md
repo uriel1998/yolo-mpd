@@ -6,24 +6,29 @@ Various MP3 and MPD tweaks, tips, tools, and scripts I've put together or found 
 ## Contents
   1. [stream_to_mpd](stream_to_mpd)
 
+  2. [f_fix_covers](f_fix_covers)
 
-f_fix_covers
+  3. [yad_show_mpd](yad_show_mpd)
 
-  5. [mpdcontrol.sh](mpdcontrol.sh)
+  4. [mpdcontrol.sh](mpdcontrol.sh)
 
-  6. [terminal-multiplexer](terminal-multiplexer)
+  5. [terminal-multiplexer](terminal-multiplexer)
 
-  7. [bpmhelper](bpmhelper)
+  6. [bpmhelper](bpmhelper)
 
-  8. [mp3gainhelper](mp3gainhelper)
+  7. [mp3gainhelper](mp3gainhelper)
 
-  9. [webserver.covers.sh](webserver.covers.sh)
+  8. [terminal_multiplexer](terminal_multiplexer)
 
-  10. [terminalcovers.sh](terminalcovers.sh)
+  9. [bpmhelper.sh](bpmhelper.sh)
 
-  11. [mediakey.sh](mediakey.sh)
+  10. [mp3gainhelper.sh](mp3gainhelper.sh)
 
+  11. [webserver.covers.sh](webserver.covers.sh)
 
+  12. [terminalcovers.sh](terminalcovers.sh)
+
+  13. [mediakey.sh](mediakey.sh)
 
 # stream_to_mpd  
 
@@ -99,6 +104,27 @@ directory.
  * `timeout` from `coreutils`
  
  
+# yad_show_mpd
+
+# yad_show_mpd.sh
+
+This script -- which should also have an image file named `defaultcover.jpg` in 
+its directory -- requires [mpc](http://git.musicpd.org/cgit/master/mpc.git/), 
+[imagemagick](https://imagemagick.org/), and [YAD](https://sourceforge.net/projects/yad-dialog/) to 
+create a popup with the albumart and trackname of the currently playing song from 
+[MPD, the music player daemon](https://www.musicpd.org/).
+
+It assumes your music directory is in `${HOME}/Music`, that your album art is 
+named either `cover.jpg` or `folder.jpg` and that `mpc` is already 
+set up correctly. The window will auto-close after 10 seconds.
+
+It will attempt to use the environment variable `MPD_HOST`, and 
+if it is not found, will examine ${HOME}/.bashrc to see if it is set there (if a 
+non-login shell) and set it for the program. If you have a password set for MPD, 
+you *must* use `MPD_HOST=Password@host` for it to work.
+
+
+![output](https://github.com/uriel1998/yolo-mpd/raw/master/yad_show_mpd.png "What it looks like")
 
 
 
@@ -212,22 +238,3 @@ One or more of the following:
 This script uses the MPRIS interface to control your media players.  
 Currently supported players include MPD, Pithos, Audacious, and Clementine
 
-# yad_show_mpd.sh
-
-This script -- which should also have an image file named `defaultcover.jpg` in 
-its directory -- requires [mpc](http://git.musicpd.org/cgit/master/mpc.git/), 
-[imagemagick](https://imagemagick.org/), and [YAD](https://sourceforge.net/projects/yad-dialog/) to 
-create a popup with the albumart and trackname of the currently playing song from 
-[MPD, the music player daemon](https://www.musicpd.org/).
-
-It assumes your music directory is in `${HOME}/Music`, that your album art is 
-named either `cover.jpg` or `folder.jpg` and that `mpc` is already 
-set up correctly. The window will auto-close after 10 seconds.
-
-It will attempt to use the environment variable `MPD_HOST`, and 
-if it is not found, will examine ${HOME}/.bashrc to see if it is set there (if a 
-non-login shell) and set it for the program. If you have a password set for MPD, 
-you *must* use `MPD_HOST=Password@host` for it to work.
-
-
-![output](https://github.com/uriel1998/yolo-mpd/raw/master/yad_show_mpd.png "What it looks like")
