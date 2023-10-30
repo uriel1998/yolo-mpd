@@ -49,24 +49,28 @@ Usage: `stream_to_mpd [OPTIONS] [STREAM_URL]`
 
 # f_fix_covers
 
-This is to finally fix those f'in covers in your music directory and to 
-synchronize them between `cover.jpg`, `folder.jpg` and what's embedded in the file. 
-If the `cover.jpg`, `folder.jpg`, or embedded cover differ, it will present them
-to you (with an audible alarm) so that you can select the correct one. If you 
-choose none of them, it will search online for cover art.  
+This is to finally fix those f'in covers in your music directory and to synchronize them between `cover.jpg`, `folder.jpg` and what's embedded in the file.   (Standard disclaimer: It worked on my system and files, I've done my best to catch edge cases, but backup your files first or use `--safe`.)
 
-If you use `--checkall`, it will prompt you to confirm each album cover, even if
-it all matches.
+If they all match, it will ensure they're all the same. If one or more locations is missing the cover, it will add it there. (Including embedded in the MP3 with `--autoembed`.
 
-You can also force it to search with each music directory using `--everything`. 
-Implies `--checkall` in practice, as the checksum of a downloaded cover *probably* 
-is slightly different than what you have. 
+If the `cover.jpg`, `folder.jpg`, or embedded cover differ, it will present them to you (with an audible alarm if you use `--ping`) so that you can select the correct one. If you choose none of them, it will search online for cover art.  
 
-You can point it at your *entire* music collection, or just at a *specific* album 
-directory.
+If you use `--safe` it will merely output what commands it *would* run.
 
-**This assumes that each directory contains the same album, even if the artists are different.**
+If you use `--remove` it will remove existing covers from MP3s before adding the chosen cover.
 
+If you use `--loud` it will spit a *lot* of stuff out onto the terminal.  Some sub-commands output text to `$STDOUT` whether I want them to or not.
+
+If you use `--checkall`, it will prompt you to confirm each album cover, even if it all matches.
+
+You can also force it to search online for each album using `--everything`, which implies `--checkall` in practice, as the checksum of a downloaded cover *probably* is slightly different than what you have. 
+
+Which sounds like a lot, but you can point `f_fix_covers.sh` at  your *entire* music collection, or just at a *specific* album directory. Feed the ones you want to check in one at a time with `xargs` if you feel like it.
+
+Two important notes: 
+
+1. **This script assumes that each directory contains the same album, even if the artists are different.**  You will get *wrong* results if you have a bunch of different MP3s from different albums in the same directory.
+2. If there is a single existing cover -- or single version, rather -- in the directory, the script **assumes it is correct** and will automatically assume that it is the correct cover. If you want to **verify** existing covers, use `--checkall` or `--everything`.
 ## Usage
 
     `f_fix_covers.sh -d [PATH/TO/MUSIC] [OPTIONS]`
