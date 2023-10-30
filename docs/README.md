@@ -87,7 +87,8 @@ Two important notes:
 * `-l|--loud         : Verbose output.`
 * `-d|--dir [DIR]    : Specify the music directory to scan.`
 
-## Dependencies
+## Dependencies (or the stuff that does the heavy lifting):
+
  * [eye3D](http://eyed3.nicfit.net/)
  * [glyr](https://github.com/sahib/glyr)
  * [eyeD3](http://eyed3.nicfit.net/)
