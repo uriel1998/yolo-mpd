@@ -44,42 +44,63 @@ Usage: `stream_to_mpd [OPTIONS] [STREAM_URL]`
 
 # f_fix_covers
 
-Dependencies: 
- * [eye3D](http://eyed3.nicfit.net/)
- * `timeout` coreutils
- 
- 
- * #  YAD = https://sourceforge.net/projects/yad-dialog/
- * mpg123 or mplayer or mpv
- * imagemagick
- * `grep` command-line tool. `grep` can be found in the `grep` package on major Linux distributions.
- * `sed` command-line tool. `sed` can be found in the `sed` package on major Linux distributions.
- * ffprobe (from ffmpeg) for song information
- 
- -- for getting things online 
- * wget
- * curl
+This is to finally fix those f'in covers in your music directory and to 
+synchronize them between `cover.jpg`, `folder.jpg` and what's embedded in the file. 
+If the `cover.jpg`, `folder.jpg`, or embedded cover differ, it will present them
+to you (with an audible alarm) so that you can select the correct one. If you 
+choose none of them, it will search online for cover art.  
 
+If you use `--checkall`, it will prompt you to confirm each album cover, even if
+it all matches.
+
+You can also force it to search with each music directory using `--everything`. 
+Implies `--checkall` in practice, as the checksum of a downloaded cover *probably* 
+is slightly different than what you have. 
+
+You can point it at your *entire* music collection, or just at a *specific* album 
+directory.
+
+**This assumes that each directory contains the same album, even if the artists are different.**
+
+## Usage
+
+    `f_fix_covers.sh -d [PATH/TO/MUSIC] [OPTIONS]`
+
+### Options:
+    
+* `-h|--help         : This.`
+* `-a|--autoembed    : Embed found, selected covers into MP3s.`
+* `-p|--ping         : Play audible tone when user input needed.`
+* `-r|--remove       : Remove existing embedded images in MP3s when cover found.`
+* `-c|--checkall     : Manually verify all album covers, even if only one.`
+* `-e|--everything   : Check online for covers for every album.`
+* `-s|--safe         : Just say what it would do, do not actually do operations.`
+* `-l|--loud         : Verbose output.`
+* `-d|--dir [DIR]    : Specify the music directory to scan.`
+
+## Dependencies
+ * [eye3D](http://eyed3.nicfit.net/)
  * [glyr](https://github.com/sahib/glyr)
  * [eyeD3](http://eyed3.nicfit.net/)
  * [sacad](https://github.com/desbma/sacad)
+ * [YAD](https://sourceforge.net/projects/yad-dialog/) 
+ 
+ The following can be installed on Debian/Ubuntu based systems by:
+ `sudo apt install feh mpg123 imagemagick ffmpeg grep sed wget curl coreutils`.
+ 
+ * `feh` 
+ * `mpg123` or `mplayer` or `mpv`
+ * `imagemagick` 
+ * `ffprobe` from `ffmpeg`
+ * `grep` 
+ * `sed` 
+ * `wget` 
+ * `curl` 
+ * `timeout` from `coreutils`
+ 
+ 
 
-Usage: f_fix_covers.sh [Music Directory]
-    
-    Will search the directory and synchronize `cover.jpg` and `folder.jpg` with embedded coverart in MP3s. 
-    Will present all alternative covers and request which one to choose. 
-    
-    -h|--help         : This.
-    -a|--autoembed    : Embed found, selected covers into MP3s.
-    -p|--ping         : Play audible tone when user input needed.
-    -r|--remove       : Remove existing embedded images in MP3s when cover found.
-    -c|--checkall     : Manually verify all album covers, even if only one.
-    -e|--everything   : Check online for covers for every album.
-    -s|--safe         : Just say what it would do, do not actually do operations.
-    -l|--loud         : Verbose output.
-    -d|--dir [DIR]    : Specify the music directory to scan.
 
-    point at a directory. Will synchronize your coverfiles, search on the internet, and prompt you if there's something missing. Also will embed in MP3s.
 
 # mpdcontrol.sh
 
