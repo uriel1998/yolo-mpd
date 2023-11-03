@@ -459,6 +459,7 @@ function directory_check () {
                     echo "### SAFETY: cp -f ${canon_cover} ${SONGDIR}/folder.jpg"
                 fi
             fi
+            COMPAREFAIL=0
             if [ $AUTOEMBED -eq 1 ];then
                 find "${SONGDIR}" -name '*.mp3' -printf '"%p"\n' | xargs -I {} realpath {} > "${songlist}"
                 while read -r line; do
