@@ -460,6 +460,7 @@ function directory_check () {
                 fi
             fi
             COMPAREFAIL=0
+            
             if [ $AUTOEMBED -eq 1 ];then
                 find "${SONGDIR}" -name '*.mp3' -printf '"%p"\n' | xargs -I {} realpath {} > "${songlist}"
                 while read -r line; do
