@@ -25,15 +25,6 @@ if [ "$MPD_HOST" == "" ];then
     export MPD_HOST=$(cat ${HOME}/.bashrc | grep MPD_HOST | awk -F '=' '{print $2}')
 fi
 
-# checking to see if currently playing/paused, otherwise exiting.
-
-status=$(mpc | grep -c -e "\[")
-if [ $status -lt 1 ];then
-    echo "Not playing or paused"
-    exit 88
-fi
-
-
 ##############################################################################
 # Create our cache
 ##############################################################################
@@ -48,18 +39,51 @@ if [ ! -d "${YADSHOW_CACHE}" ];then
     mkdir -p "${YADSHOW_CACHE}"
 fi
 
-##############################################################################
-# functions
-##############################################################################
+# rounding rectangles:
+# https://www.imagemagick.org/Usage/compose/
+# https://legacy.imagemagick.org/Usage/thumbnails/#rounded_borde
 
-
-function get_song_info(){
-    SONGFILE="${MPD_MUSIC_BASE}"/$(mpc current --format %file%)
-    SONGDIR=$(dirname "$(readlink -f "$SONGFILE")")
-    SONGSTRING=$(mpc current --format "%artist% - %title% - %album%")
+function round_rectangles (){
+    
+    #NEED TO CLEAN UP FILE HANDLING AND OUTPUT AND SHIT
+    
+  convert "${1}" \
+      -format 'roundrectangle 1,1 %[fx:w+4],%[fx:h+4] 15,15' \
+      -write info:tmp.mvg \
+      -alpha set -bordercolor none -border 3 \
+      \( +clone -alpha transparent -background none \
+         -fill white -stroke none -strokewidth 0 -draw @tmp.mvg \) \
+      -compose DstIn -composite \
+      \( +clone -alpha transparent -background none \
+         -fill none -stroke black -strokewidth 3 -draw @tmp.mvg \
+         -fill none -stroke white -strokewidth 1 -draw @tmp.mvg \) \
+      -compose Over -composite               "${2}"
 }
 
-function prep_cover(){
+
+
+# Checking to see if currently playing/paused, otherwise exiting.
+# checks audacity first, since it's always a local player, as opposed to MPD
+
+aud_status=$(audtool playback-status)
+if [ "${aud_status}" == "playing" ];then
+    SONGSTRING=$(audtool current-song)
+    SONGFILE=$(audtool current-song-filename)
+    SONGDIR=$(dirname "$(readlink -f "$SONGFILE")")
+else
+    status=$(mpc | grep -c -e "\[")
+    if [ $status -lt 1 ];then
+        echo "Not playing or paused"
+        exit 88
+    else
+        #MPD is running
+        SONGFILE="${MPD_MUSIC_BASE}"/$(mpc current --format %file%)
+        SONGDIR=$(dirname "$(readlink -f "$SONGFILE")")
+        SONGSTRING=$(mpc current --format "%artist% - %title% - %album%")
+    fi
+fi
+
+
     if [ -f "$SONGDIR"/folder.jpg ];then
         COVERFILE="$SONGDIR"/folder.jpg
     else
@@ -75,18 +99,18 @@ function prep_cover(){
         echo "No cover or default cover found."
         exit 99
     fi
-    
-    convert "${COVERFILE}" -resize "600x600" "${YADSHOW_CACHE}/nowplaying.album.jpg"
-}
+
+    TEMPFILE3=$(mktemp)    
+    convert "${COVERFILE}" -resize "600x600" "${TEMPFILE3}"
+    round_rectangles "${TEMPFILE3}" "${YADSHOW_CACHE}/nowplaying.album.png"
+
+
 
 ##############################################################################
-# 
+# Display what we have found
 ##############################################################################
 
-get_song_info
 
-prep_cover
-
-yad --window-icon=musique --always-print-result --on-top --skip-taskbar --image-on-top --borders=5 --title "$SONGSTRING" --text-align=center --image "$YADSHOW_CACHE"/nowplaying.album.jpg --timeout=10 --no-buttons
+yad --window-icon=musique --always-print-result --on-top --skip-taskbar --image-on-top --borders=5 --title "$SONGSTRING" --text-align=center --image "$YADSHOW_CACHE"/nowplaying.album.png --timeout=10 --no-buttons
 
 read

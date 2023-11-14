@@ -6,17 +6,17 @@
 # and genre tags (apparently because it writes old versions of the tags)
 ########################################################################
 
-if [[ "$@" =~ "save-existing" ]]; then
+if [[ "$@" =~ "--save" ]]; then
     SaveExisting=1
 else
     SaveExisting=0
 fi
-if [[ "$@" =~ "skip-existing" ]]; then
+if [[ "$@" =~ "--skip" ]]; then
     SkipExisting=1
 else
     SkipExisting=0
 fi
-if [[ "$@" =~ "quiet" ]]; then
+if [[ "$@" =~ "--quiet" ]]; then
     Quiet=1
 else
     Quiet=0
@@ -29,12 +29,12 @@ startdir="$PWD"
 
 IFS=$'\n'
 
-for f in $(find "$startdir" -name '*.mp3' );do 
+for f in $(find "${startdir}/" -name '*.mp3' );do 
     if [ Quiet = 0 ]; then
         echo "Analyzing ${f}"
     fi
     re='^[0-9]+$'
-    existingbpm=`eyeD3  "${f}"  | grep BPM | awk -F ':' '{ print $2 }' | awk '{print $2}'`
+    existingbpm=`eyeD3  "${f}" 2>/dev/null  | grep BPM | awk -F ':' '{ print $2 }' | awk '{print $2}'`
     sleep 1
     if ! [[ $existingbpm =~ $re ]] && [[ "$existingbpm" != "" ]]; then
         echo "Existing BPM jacked up!!" >&2
@@ -53,7 +53,7 @@ for f in $(find "$startdir" -name '*.mp3' );do
                     echo "Warning: BPMs differ for ${f}!"
                 fi
             else
-                eyeD3 --quiet --bpm="$bpmtemp" "${f}"
+                eyeD3 --quiet --bpm="$bpmtemp" "${f}" 2>/dev/null 1>/dev/null
             fi
         fi
     fi
