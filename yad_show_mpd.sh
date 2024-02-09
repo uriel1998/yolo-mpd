@@ -70,7 +70,16 @@ if [ "${aud_status}" == "playing" ];then
     SONGSTRING=$(audtool current-song)
     SONGFILE=$(audtool current-song-filename)
     SONGDIR=$(dirname "$(readlink -f "$SONGFILE")")
-else
+fi
+Strawberry_Status=$(qdbus org.mpris.MediaPlayer2.strawberry /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.PlaybackStatus)
+if [ "${Strawberry_Status}" == "Playing" ];then
+    bob=$(qdbus org.mpris.MediaPlayer2.strawberry /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Metadata)
+    album=$(echo "${bob}" | grep ":album:" | cut -d ' ' -f 2-)
+    artist=$(echo "${bob}" | grep ":artist:" | cut -d ' ' -f 2-)
+    title=$(echo "${bob}" | grep ":title:" | cut -d ' ' -f 2-)
+    SONGSTRING="${artist} - ${album} - ${title}"
+    SONGFILE=$(echo "${bob}" | grep ":url:" | cut -d '/' -f 3-)
+else    
     status=$(mpc | grep -c -e "\[")
     if [ $status -lt 1 ];then
         echo "Not playing or paused"

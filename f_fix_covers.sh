@@ -288,7 +288,7 @@ function show_compare_images () {
     feh --preload --fullindex --thumb-width 200 --thumb-height 200 --stretch --draw-filename --filelist "${show_list}" --output-only "${TMPDIR}/out_montage.jpg"
     
     #Which of the images should be canonical?
-   
+
     buttonstring=""
     i=1
     while read -r line; do
@@ -321,7 +321,7 @@ function directory_check () {
 
     find "${MusicDir}" -name '*.mp3' -printf '"%h"\n' | sort -u | xargs -I {} realpath {} > "${dirlist}"
     CURRENTENTRY="0"
-    ENTRIES=$(cat ${dirlist} | wc -l)
+    ENTRIES=$(cat "${dirlist}" | wc -l)
     while read -r line; do
         cleanup
         SONGFILE=""
@@ -473,6 +473,9 @@ function directory_check () {
                         CA_Embedded=0
                     fi
                     
+# TODO - THIS CHECK FAILS IT IS NOT EMBEDDING FOUND IMAGES
+# TODO - FLOPS IF THERE IS NOT A FILE IN DIRECTORY TO BEGIN WITH IF IN BIG LOOP
+                    
                     if [ $CA_Embedded -eq 0 ];then
                         # either comparefail failed or there is no embedded cover.
                         if [ $SAFETY -eq 0 ];then 
@@ -545,7 +548,6 @@ if [ ! -d "$MusicDir" ]; then
 fi
 
 loud "Using ${MusicDir}"
-
 SAVEIFS=$IFS
 IFS=$(echo -en "\n\b")
 

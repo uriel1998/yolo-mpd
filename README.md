@@ -117,7 +117,7 @@ This script -- which should also have an image file named `defaultcover.jpg` in
 its directory -- requires [mpc](http://git.musicpd.org/cgit/master/mpc.git/), 
 [imagemagick](https://imagemagick.org/), and [YAD](https://sourceforge.net/projects/yad-dialog/) to 
 create a popup with the albumart and trackname of the currently playing song from 
-[MPD, the music player daemon](https://www.musicpd.org/).
+[MPD, the music player daemon](https://www.musicpd.org/) or `audacity` with the use of `audtool`.
 
 It assumes your music directory is in `${HOME}/Music`, that your album art is 
 named either `cover.jpg` or `folder.jpg` and that `mpc` is already 

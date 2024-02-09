@@ -26,7 +26,7 @@ startdir="$PWD"
 
 # find is not used here so that both operations can be done and so that
 # the whole operation doesn't die if mp3gain throws an error ungracefully
-
+Quiet=0
 IFS=$'\n'
 
 for f in $(find "${startdir}/" -name '*.mp3' );do 
