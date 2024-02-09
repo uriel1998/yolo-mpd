@@ -77,6 +77,7 @@ if [ "${Strawberry_Status}" == "Playing" ];then
     album=$(echo "${bob}" | grep ":album:" | cut -d ' ' -f 2-)
     artist=$(echo "${bob}" | grep ":artist:" | cut -d ' ' -f 2-)
     title=$(echo "${bob}" | grep ":title:" | cut -d ' ' -f 2-)
+    coverurl=$(echo "${bob}" | grep ":artUrl:" | cut -d '/' -f 3- )
     SONGSTRING="${artist} - ${album} - ${title}"
     SONGFILE=$(echo "${bob}" | grep ":url:" | cut -d '/' -f 3-)
 else    
@@ -102,8 +103,14 @@ fi
     fi
 
     if [ "$COVERFILE" == "" ];then
-        COVERFILE=${DEFAULT_COVER}
+        if [ -f "${coverurl}" ];then
+            COVERFILE="${coverurl}"
+            coverurl=""
+        else
+            COVERFILE=${DEFAULT_COVER}
+        fi
     fi
+
     if [ "$COVERFILE" == "" ];then
         echo "No cover or default cover found."
         exit 99
