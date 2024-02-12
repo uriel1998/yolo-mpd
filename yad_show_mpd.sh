@@ -65,33 +65,35 @@ function round_rectangles (){
 # Checking to see if currently playing/paused, otherwise exiting.
 # checks local players like audacity first, since it's always a local player, as opposed to MPD
 
-    
     aud_status=$(audtool playback-status)
     if [ "${aud_status}" == "playing" ];then
         SONGSTRING=$(audtool current-song)
         SONGFILE=$(audtool current-song-filename)
     fi
-    Clementine_Status=$(qdbus org.mpris.MediaPlayer2.clementine /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.PlaybackStatus 2>/dev/null)
-    if [ "${Clementine_Status}" == "Playing" ];then
-        bob=$(qdbus org.mpris.MediaPlayer2.clementine /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Metadata)
-        album=$(echo "${bob}" | grep ":album:" | cut -d ' ' -f 2-)
-        artist=$(echo "${bob}" | grep ":artist:" | cut -d ' ' -f 2-)
-        title=$(echo "${bob}" | grep ":title:" | cut -d ' ' -f 2-)
-        coverurl=$(echo "${bob}" | grep ":artUrl:" | cut -d '/' -f 3- )
-        SONGSTRING="${artist} - ${album} - ${title}"
-        SONGFILE=$(echo "${bob}" | grep ":url:" | cut -d '/' -f 3-)
+    if [ ! -f "${SONGFILE}" ];then
+        Clementine_Status=$(qdbus org.mpris.MediaPlayer2.clementine /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.PlaybackStatus 2>/dev/null)
+        if [ "${Clementine_Status}" == "Playing" ];then
+            bob=$(qdbus org.mpris.MediaPlayer2.clementine /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Metadata)
+            album=$(echo "${bob}" | grep ":album:" | cut -d ' ' -f 2-)
+            artist=$(echo "${bob}" | grep ":artist:" | cut -d ' ' -f 2-)
+            title=$(echo "${bob}" | grep ":title:" | cut -d ' ' -f 2-)
+            coverurl=$(echo "${bob}" | grep ":artUrl:" | cut -d '/' -f 3- )
+            SONGSTRING="${artist} - ${album} - ${title}"
+            SONGFILE=$(echo "${bob}" | grep ":url:" | cut -d '/' -f 3-)
+        fi
     fi
-    Strawberry_Status=$(qdbus org.mpris.MediaPlayer2.strawberry /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.PlaybackStatus 2>/dev/null)
-    if [ "${Strawberry_Status}" == "Playing" ];then
-        bob=$(qdbus org.mpris.MediaPlayer2.strawberry /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Metadata)
-        album=$(echo "${bob}" | grep ":album:" | cut -d ' ' -f 2-)
-        artist=$(echo "${bob}" | grep ":artist:" | cut -d ' ' -f 2-)
-        title=$(echo "${bob}" | grep ":title:" | cut -d ' ' -f 2-)
-        coverurl=$(echo "${bob}" | grep ":artUrl:" | cut -d '/' -f 3- )
-        SONGSTRING="${artist} - ${album} - ${title}"
-        SONGFILE=$(echo "${bob}" | grep ":url:" | cut -d '/' -f 3-)
+    if [ ! -f "${SONGFILE}" ];then
+        Strawberry_Status=$(qdbus org.mpris.MediaPlayer2.strawberry /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.PlaybackStatus 2>/dev/null)
+        if [ "${Strawberry_Status}" == "Playing" ];then
+            bob=$(qdbus org.mpris.MediaPlayer2.strawberry /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Metadata)
+            album=$(echo "${bob}" | grep ":album:" | cut -d ' ' -f 2-)
+            artist=$(echo "${bob}" | grep ":artist:" | cut -d ' ' -f 2-)
+            title=$(echo "${bob}" | grep ":title:" | cut -d ' ' -f 2-)
+            coverurl=$(echo "${bob}" | grep ":artUrl:" | cut -d '/' -f 3- )
+            SONGSTRING="${artist} - ${album} - ${title}"
+            SONGFILE=$(echo "${bob}" | grep ":url:" | cut -d '/' -f 3-)
+        fi
     fi
-    
     if [ ! -f "${SONGFILE}" ];then
         # checking if MPD_HOST is set or exists in .bashrc
         # if neither is set, will just go with defaults (which will fail if 
@@ -107,7 +109,6 @@ function round_rectangles (){
             SONGSTRING=$(mpc current --format "%artist% - %album% - %title%")
         fi
     fi
-
 
 
     if [ -f "$SONGDIR"/folder.jpg ];then
