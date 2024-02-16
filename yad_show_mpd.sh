@@ -64,7 +64,7 @@ function round_rectangles (){
 
 # Checking to see if currently playing/paused, otherwise exiting.
 # checks local players like audacity first, since it's always a local player, as opposed to MPD
-
+    IF_URL=0
     aud_status=$(audtool playback-status)
     if [ "${aud_status}" == "playing" ];then
         SONGSTRING=$(audtool current-song)
