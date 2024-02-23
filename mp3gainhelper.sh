@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ########################################################################
-# This script is designed as a wrapper for mp3gain that handles errors
+# This script is designed as a wrapper for LOADGAIN that handles errors
 # gracefully, as well as automates the encoding of the replaygain info
 # into the id3 tags from APE
 # 
@@ -26,19 +26,21 @@ fi
 
 IFS=$'\n'
 
-for f in $(find "$startdir" -name '*.mp3' );do 
-    # exists=$(ffprobe "${f}" 2>&1 | grep -c -e "replaygain_.*_gain")
-    # unneeded since direct writing to ID3v2 is working
-    mp3gain -e -c -T -p -r -k -s r -s i "${f}"
+    find "${MusicDir}" -name '*.mp3' -printf '"%h"\n' | sort -u | xargs -I {} realpath {} > "${dirlist}"
+    while read -r line; do    
+        SONGDIR=$(realpath "${line}")
+        filetime=$(stat -c '%y' $(find "${line}" -maxdepth 1 -iname "*.mp3" -type f -printf '%p\n' | shuf |  head -n 1))
+        find "${line}" -maxdepth 1 -iname "*.mp3" -type f -exec loudgain -I3 -S -L -a -k -s e {} +
+        for f in $(find "${line}" -maxdepth 1 -iname "*.mp3" -type f); do
+            touch -d "${filetime}" "${f}"
+        done
+    done < "${dirlist}"
+    # strip other than idv2
+    # write tags + extended
+    # album (and track) gain
+    # noclip 
+    # lowercase
+    # id3v2.3 tags
     
-    # add -a and list of files for albumgain
-    # will need a whole separate pass for "album level" and then recurse into
-    # lower levels.
-done
 
 unset IFS
-
-#to ensure python2 compatibility for the moment
-#source /home/steven/apps/ape2id3/bin/activate
-#find . -type f -iname '*.mp3' -exec ape2id3.py -df {} \;
-#deactivate
