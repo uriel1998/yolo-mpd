@@ -26,7 +26,7 @@ fi
 
 IFS=$'\n'
 
-    find "${MusicDir}" -name '*.mp3' -printf '"%h"\n' | sort -u | xargs -I {} realpath {} > "${dirlist}"
+    find "${startdir}" -name '*.mp3' -printf '"%h"\n' | sort -u | xargs -I {} realpath {} > "${dirlist}"
     while read -r line; do    
         SONGDIR=$(realpath "${line}")
         filetime=$(stat -c '%y' $(find "${line}" -maxdepth 1 -iname "*.mp3" -type f -printf '%p\n' | shuf |  head -n 1))
