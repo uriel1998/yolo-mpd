@@ -9,19 +9,19 @@
 #  To view a copy of this license, visit http://creativecommons.org/licenses/by-sa/3.0/.
 #
 ################################################################################
-    
+ADDMODE="1"    
     
     if [ -z "$MPD_HOST" ];then
         MPD_HOST=localhost
     fi
     
-    if [ "$1" == "-a" ];then
-        ADDMODE=1
+    if [ "$1" == "-c" ];then
+        ADDMODE="0"
     fi
 
 clearmode (){
     
-        if [ "$ADDMODE" = "" ];then
+        if [ "$ADDMODE" = "0" ];then
             mpc --host "$MPD_HOST" clear -q
         fi
 }
@@ -100,6 +100,6 @@ clearmode (){
 		;;
 		"q")
 		;;
-		"h") echo "Use -a for add mode.  Export your MPD_HOST as PASS@HOST; localhost is default";;
+		"h") echo "Use -c to clear before adding.  Export your MPD_HOST as PASS@HOST; localhost is default";;
         *)            echo "You have chosen poorly. Run without commandline input.";;
 	esac
