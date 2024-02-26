@@ -30,8 +30,8 @@ clearmode (){
     read -r CHOICE
 
     
-	case "$CHOICE" in
-		"A") 
+    case "$CHOICE" in
+        "A") 
             if [ -f "$(which fzf)" ];then 
                 result=$(mpc --host "$MPD_HOST" list albumartist | fzf --multi)
             else
@@ -43,8 +43,8 @@ clearmode (){
                 mpc --host "$MPD_HOST" shuffle -q
                 mpc --host "$MPD_HOST" play
             done <<< "$result"
-		;;
-		"a") 
+        ;;
+        "a") 
             if [ -f "$(which fzf)" ];then 
                 result=$(mpc --host "$MPD_HOST" list artist | fzf --multi)
             else
@@ -56,8 +56,8 @@ clearmode (){
                 mpc --host "$MPD_HOST" shuffle -q
                 mpc --host "$MPD_HOST" play
             done <<< "$result"
-		;;
-		"l") 
+        ;;
+        "l") 
 
             if [ -f "$(which fzf)" ];then 
                 result=$(mpc --host "$MPD_HOST" list album | fzf --multi)
@@ -70,9 +70,9 @@ clearmode (){
                 mpc --host "$MPD_HOST" random off
                 mpc --host "$MPD_HOST" play
             done <<< "$result"
-		;;
+        ;;
 
-		"g") 
+        "g") 
             if [ -f "$(which fzf)" ];then 
                 result=$(mpc --host "$MPD_HOST" list genre | fzf --multi)
             else
@@ -84,8 +84,8 @@ clearmode (){
                 mpc --host "$MPD_HOST" shuffle -q
                 mpc --host "$MPD_HOST" play
             done <<< "$result"
-		;;
-		"p")
+        ;;
+        "p")
             if [ -f "$(which fzf)" ];then 
                 result=$(mpc --host "$MPD_HOST" lsplaylists | fzf --multi)
             else
@@ -94,12 +94,11 @@ clearmode (){
             clearmode            
             while IFS= read -r playlist; do
                 mpc --host "$MPD_HOST" load "$playlist" 
-                mpc --host "$MPD_HOST" shuffle -q
                 mpc --host "$MPD_HOST" play
             done <<< "$result"
-		;;
-		"q")
-		;;
-		"h") echo "Use -c to clear before adding.  Export your MPD_HOST as PASS@HOST; localhost is default";;
+        ;;
+        "q")
+        ;;
+        "h") echo "Use -c to clear before adding.  Export your MPD_HOST as PASS@HOST; localhost is default";;
         *)            echo "You have chosen poorly. Run without commandline input.";;
-	esac
+    esac
