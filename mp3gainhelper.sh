@@ -37,9 +37,6 @@ IFS=$'\n'
         for f in $(find "${line}" -maxdepth 1 -iname "*.mp3" -type f); do
             touch -d "${filetime}" "${f}"
         done
-        sync
-        sleep 5
-        
     done < <(find "${startdir}" -name '*.mp3' -printf '"%h"\n' | xargs -I {} realpath {} | sort -u)
     # strip other than idv2
     # write tags + extended

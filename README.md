@@ -135,7 +135,7 @@ you *must* use `MPD_HOST=Password@host` for it to work.
 
 # mpdcontrol.sh
 
-Select whether you want to choose a playlist, or by album, artist, or genre. Clears playlist, adds what you chose, starts playing. The SSH version is for exactly that, especially if you don't have `pick` on that machine.
+Select whether you want to choose a playlist, or by album, artist, or genre. Clears playlist (IF YOU USE THE SWITCH -c), adds what you chose, starts playing. The SSH version is for exactly that, especially if you don't have `pick` on that machine.
 
 Optionally, if `fzf` is installed on the system, it will seamlessly substitute that program in, with the option to select multiple entries at once (use TAB). 
 
@@ -200,13 +200,14 @@ Dependencies
 
 # mp3gainhelper.sh
 
-Performs mp3gain analysis and writes to id3 tags. The MP3Gain utility apparently writes by default to APE tags, which aren't used by MPD. While `mp3gain` no longer has issues corrupting ID3 data if you write directly to ID3 tags, it will crash and abort if it runs into an error instead of continuing onward. That and the options are a pain, so this helps.
+Well, switched to `loudgain` which uses a (better) way of calculating gain. HOWEVER, unlike `mp3gain`, 
+it does not have a way to preserve file date and time.  So the gainhelper is still here. 
 
 Accepts only one command line argument (optional) giving the directory to analyze. Otherwise analyzes the current directory *and all subdirectories*.
 
 Dependencies: 
-* [mp3gain](http://mp3gain.sourceforge.net/)
-* ape2id3 from [MPD Wiki](http://mpd.wikia.com/wiki/Hack:ape2id3.py) or [this gist](https://gist.github.com/uriel1998/6333da780d44e59abbc1761700104329)
+* [loudgain](https://github.com/Moonbase59/loudgain)
+
 
 # webserver.covers.sh
 
