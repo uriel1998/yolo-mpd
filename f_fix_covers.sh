@@ -475,13 +475,24 @@ function directory_check () {
                     
 # TODO - THIS CHECK FAILS IT IS NOT EMBEDDING FOUND IMAGES
 # TODO - FLOPS IF THERE IS NOT A FILE IN DIRECTORY TO BEGIN WITH IF IN BIG LOOP
-                    
+    echo "$CA_Embedded AND $REMOVE"
+                    if [ $REMOVE -eq 1 ]; then 
+                        if [ $SAFETY -eq 1 ];then 
+                            echo "### SAFETY: eyeD3 --quiet --remove-all-images ${line}"
+                        else
+                            if [ $LOUD -eq 1 ];then
+                                eyeD3 --quiet --remove-all-images "${line}"
+                            else
+                                eyeD3 --quiet --remove-all-images "${line}" 2>/dev/null 1>/dev/null 
+                            fi
+                        fi
+                        CA_Embedded=0
+                    fi
                     if [ $CA_Embedded -eq 0 ];then
                         # either comparefail failed or there is no embedded cover.
                         if [ $SAFETY -eq 0 ];then 
                             filetime=$(stat -c '%y' "${line}")
-                            if [ $LOUD -eq 1 ];then
-                                if [ $REMOVE -eq 1 ]; then eyeD3 --quiet --remove-all-images "${line}" ;fi
+                            if [ $LOUD -eq 1 ];then                                
                                 eyeD3 --quiet --add-image="${canon_cover}":FRONT_COVER:Cover "${line}"
                             else
                                 if [ $REMOVE -eq 1 ];then eyeD3 --quiet --remove-all-images "${line}" 2>/dev/null 1>/dev/null ; fi
