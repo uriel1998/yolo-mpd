@@ -120,6 +120,31 @@ function round_rectangles (){
             SONGSTRING="${artist} - ${album} - ${title}"
         fi
     fi
+   if [ ! -f "${SONGFILE}" ];then
+        Plexamp_Status=$(qdbus org.mpris.MediaPlayer2.Plexamp /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.PlaybackStatus 2>/dev/null)
+        if [ "${Plexamp_Status}" == "Playing" ];then
+            bob=$(qdbus org.mpris.MediaPlayer2.Plexamp /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Metadata)
+            album=$(echo "${bob}" | grep ":album:" | cut -d ' ' -f 2-)
+            artist=$(echo "${bob}" | grep ":artist:" | cut -d ' ' -f 2-)
+            title=$(echo "${bob}" | grep ":title:" | cut -d ' ' -f 2-)
+            coverurl=$(echo "${bob}" | grep ":artUrl:" | cut -d '/' -f 3- )
+            IF_URL==$(echo "${bob}" | grep ":url:" | grep -c "http")
+            if [ "$IF_URL" == "0" ];then
+                SONGFILE=$(echo "${bob}" | grep ":url:" | cut -d '/' -f 3-)
+            else
+                #is internet stream
+                echo "internet"
+                SONGFILE=$(echo "${bob}" | grep ":url:" | cut -d ' ' -f 2)
+                echo "#${album}#"
+                if [ "${album}" == "" ];then
+                    
+                    album=$(echo "${bob}" | grep ":url:" | cut -d ' ' -f 3)
+                    echo "$album"
+                fi
+            fi
+            SONGSTRING="${artist} - ${album} - ${title}"
+        fi
+    fi
     if [ ! -f "${SONGFILE}" ] && [ "${IF_URL}" == "0" ];then
         # checking if MPD_HOST is set or exists in .bashrc
         # if neither is set, will just go with defaults (which will fail if 
