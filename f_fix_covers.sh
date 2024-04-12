@@ -61,7 +61,7 @@ function cleanup {
     find "$TMPDIR/" -iname "cover*"  -exec rm -f {} \;    
     find "$TMPDIR/" -iname "ICON*"  -exec rm -f {} \;  
     find "$TMPDIR/" -iname "ILLUSTRATION*"  -exec rm -f {} \;
-    find "$TMPDIR/" -iname "*FOUND_COVER*"  -exec rm -f {} \;  
+    #find "$TMPDIR/" -iname "*FOUND_COVER*"  -exec rm -f {} \;  
     rm "${TMPDIR}/out_montage.jpg" 2>/dev/null 1>/dev/null
 }
 
@@ -340,11 +340,12 @@ function directory_check () {
         #find "${SONGDIR}" -name '*.mp3' -printf '"%p"\n' | xargs -I {} realpath {} >> "${songlist}"
         cleanup
         # Get all embedded front covers
+        #rm -rf "${TMPDIR}/*.jpeg" 2>/dev/null 1>/dev/null     
+        rm -rf "${TMPDIR}/*.jpg" 2>/dev/null 1>/dev/null
+
         FOUND_COVERS=0
         EmbeddedChecksums=""
         while read -r line; do
-            rm -rf "${TMPDIR}/*.jpeg" 2>/dev/null 1>/dev/null
-            rm -rf "${TMPDIR}/*.jpg" 2>/dev/null 1>/dev/null
             loud "Examining ${line}"
             
             SONGFILE="${line}"
@@ -368,7 +369,7 @@ function directory_check () {
                         EmbeddedChecksums=$(echo "${EmbeddedChecksums}${tmpchecksum}")
                         FOUND_COVERS=$((FOUND_COVERS + 1))
                         loud "Found ${FOUND_COVERS} covers so far!"
-                        mv "${TMPDIR}/FRONT_COVER.jpeg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"                    
+                        mv "${TMPDIR}/FRONT_COVER.jpeg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"                                           
                     fi
                 fi
             fi
@@ -412,12 +413,11 @@ function directory_check () {
         fi
 
         # comparing the hash of found covers; if all are equal, then...
-        
         if [ $FOUND_COVERS -gt 1 ] && [ ! -s "${canon_cover}" ];then        
             find "${TMPDIR}" -name '*FOUND_COVER.jpeg' -printf '%p\n' | xargs -I {} realpath {} > "${testlist}"
             testsha=$(shasum $(cat ${testlist}|shuf) | awk '{print $1}')
             testsha=$(echo "${testsha}" | head -n 1 )
-            
+                        
             # If compareall is on, it will automatically kick in the comparison
             COMPAREFAIL=$CHECKALL
             while read -r line; do
@@ -434,7 +434,6 @@ function directory_check () {
                 # the head line below fixes it, anyway...
                 canon_cover=$(echo "${canon_cover}" | head -n 1)
                 if [ ! -s "${canon_cover}" ]; then
-                    loud "${SONGDIR}"
                     canon_cover=$(search_for_cover "${SONGDIR}")
                     canon_cover=$(echo "${canon_cover}" | head -n 1)
                 fi
@@ -473,9 +472,6 @@ function directory_check () {
                         CA_Embedded=0
                     fi
                     
-# TODO - THIS CHECK FAILS IT IS NOT EMBEDDING FOUND IMAGES
-# TODO - FLOPS IF THERE IS NOT A FILE IN DIRECTORY TO BEGIN WITH IF IN BIG LOOP
-    echo "$CA_Embedded AND $REMOVE"
                     if [ $REMOVE -eq 1 ]; then 
                         if [ $SAFETY -eq 1 ];then 
                             echo "### SAFETY: eyeD3 --quiet --remove-all-images ${line}"
@@ -488,6 +484,7 @@ function directory_check () {
                         fi
                         CA_Embedded=0
                     fi
+                    
                     if [ $CA_Embedded -eq 0 ];then
                         # either comparefail failed or there is no embedded cover.
                         if [ $SAFETY -eq 0 ];then 
@@ -515,6 +512,7 @@ function directory_check () {
         fi
         rm -rf "${TMPDIR}/*.jpeg" 2>/dev/null 1>/dev/null
         rm -rf "${TMPDIR}/*.jpg" 2>/dev/null 1>/dev/null
+        find "$TMPDIR/" -iname "*FOUND_COVER*"  -exec rm -f {} \;  
     done < "${dirlist}"
     rm "${dirlist}"
 }
