@@ -1,9 +1,8 @@
 #!/bin/bash
 
 ########################################################################
-# This script is designed as a wrapper for mp3gain that handles the 
-# problem that bpm-tools (or bpm-tag) has with obliterating the coverart
-# and genre tags (apparently because it writes old versions of the tags)
+# This script is designed as a wrapper for bpm-tag and eyeD3 that both
+# tags with BPM but also preserves file date
 ########################################################################
 Quiet=0
 

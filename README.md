@@ -174,17 +174,15 @@ One or more of the following:
 
 # bpmhelper.sh
 
-Uses the bpm-tools package, which analyzes BPM quite nicely on linux, 
-but then writes tags that overwrite album and genre tags. So this 
-wrapper uses eyeD3 to determine if a BPM is already written, then 
-analyzes the file, then uses eyeD3 to do the writing to the file. 
-I already have eyeD3 for the album art script; a solution 
+Uses the bpm-tag package, which analyzes BPM quite nicely on linux, but doesn't
+preserve the file date. So this wrapper uses eyeD3 to determine if a BPM is 
+already written, then if not, analyzes the file, then uses eyeD3 to do the 
+writing to the file. I already have eyeD3 for the album art script; a solution 
 that does not rely on that dependency can be found 
 at [bpmwrap](https://github.com/meridius/bpmwrap).
 
-`bpm-tools` outputs error messages if you do not have id3v2 and sox with mp3 
-headers already installed and thus makes the script fail. You can either tweak 
-the script or install the packages `sox`, `libsox-fmt-mp3`, and `id3v2`.
+`bpm-tag` outputs error messages if you do not have id3v2 already installed and 
+thus makes the script fail. Install the debian package `id3v2`.
 
 Accepts two command line arguments (optional)
 
