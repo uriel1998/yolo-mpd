@@ -5,6 +5,7 @@
 # problem that bpm-tools (or bpm-tag) has with obliterating the coverart
 # and genre tags (apparently because it writes old versions of the tags)
 ########################################################################
+Quiet=0
 
 if [[ "$@" =~ "--save" ]]; then
     SaveExisting=1
@@ -26,11 +27,11 @@ startdir="$PWD"
 
 # find is not used here so that both operations can be done and so that
 # the whole operation doesn't die if mp3gain throws an error ungracefully
-Quiet=0
+
 IFS=$'\n'
 
 for f in $(find "${startdir}/" -name '*.mp3' );do 
-    if [ Quiet = 0 ]; then
+    if [ $Quiet = 0 ]; then
         echo "Analyzing ${f}"
     fi
     re='^[0-9]+$'
@@ -40,6 +41,7 @@ for f in $(find "${startdir}/" -name '*.mp3' );do
         echo "Existing BPM jacked up!!" >&2
     elif [ $SkipExisting = 0 ];then
         sleep 1
+        filetime=$(stat -c '%y' "${f}")
         bpmtemp=$(bpm-tag -f -n "${f}" 2>&1| grep -v "not found" | awk -F ': ' '{ print $2}' | awk -F '.' '{print $1}')
         if ! [[ $bpmtemp =~ $re ]] ; then
             echo "No valid BPM detected!" >&2
@@ -54,6 +56,7 @@ for f in $(find "${startdir}/" -name '*.mp3' );do
                 fi
             else
                 eyeD3 --quiet --bpm="$bpmtemp" "${f}" 2>/dev/null 1>/dev/null
+                touch -d "${filetime}" "${f}"
             fi
         fi
     fi
