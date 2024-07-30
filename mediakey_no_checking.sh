@@ -4,8 +4,8 @@
 ## -- It will assume you are using a media application that is compatible with MPRIS or  -- ##
 ## -- "Media Player Remote Interfacing Specification"                                    -- ##
 
-#  TODO: import code from yadshow to more flexibly cascade media players
-
+# basically stripped out everything checking if a player was up, specialization 
+# only for ones that have non-standard controls
 
 if [ $# = 0 ]; then
     echo "This script is designed to use the MPRIS interface to interact with music players."
@@ -15,55 +15,10 @@ if [ $# = 0 ]; then
     echo "Action may be:"
     echo "p = play, n = next, b = previous, s = stop, z = pause"
     echo " "
-    echo "PLAYER is optional (otherwise it triggers ALL supported players)"
-    echo "p = Pithos"
-    echo "a = Audacious"
-    echo "m = MPD"
-    echo "c = Clementine"
-    echo " "
     exit
 fi
 
 ActivePlayers=$(qdbus | grep org.mpris.MediaPlayer2 | awk '{print $1}')
-
-# Only triggered if a player is specified, then checks to make sure it's up.
-if [ $# = 2 ]; then
-    case "$2" in
-        [Pp]*)
-            if [[ "$ActivePlayers" != *"pithos"* ]]; then
-                echo "Pithos is not playing."
-                exit
-            else
-                ActivePlayers="org.mpris.MediaPlayer2.pithos"
-            fi          
-            ;;
-        [Aa]*)
-            if [[ "$ActivePlayers" != *"audacious"* ]]; then
-                echo "Audacious is not playing."
-                exit
-            else
-                ActivePlayers="org.mpris.MediaPlayer2.audacious"
-            fi          
-            ;;
-        [Mm]*)
-            if [[ "$ActivePlayers" != *"mpd"* ]]; then
-                echo "MPD is not playing."
-                exit
-            else
-                ActivePlayers="org.mpris.MediaPlayer2.mpd"
-            fi          
-            ;;
-        [Cc]*)
-            if [[ "$ActivePlayers" != *"clementine"* ]]; then
-                echo "Clementine is not playing."
-                exit
-            else
-                ActivePlayers="org.mpris.MediaPlayer2.clementine"
-            fi          
-            ;;
-    esac
-fi
-
 
 case "$1" in
     # Play/pause
@@ -81,7 +36,12 @@ case "$1" in
                 if [[ "$player" =~ "pithos" ]];then
                     qdbus org.mpris.MediaPlayer2.pithos /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.PlayPause
                 else
-                    qdbus "${player}" /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Play
+                    Player_Status=$(qdbus "${player}" /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.PlaybackStatus 2>/dev/null)
+                    if [ "${Player_Status}" == "Playing" ];then
+                        qdbus "${player}" /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Pause
+                    else
+                        qdbus "${player}" /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Play
+                    fi
                 fi
             fi
         done <<< "${ActivePlayers}"        
