@@ -28,27 +28,28 @@ startdir="$PWD"
 # the whole operation doesn't die if mp3gain throws an error ungracefully
 
 IFS=$'\n'
-
+watchcount=0
 for f in $(find "${startdir}/" -name '*.mp3' );do 
+    
     if [ $Quiet = 0 ]; then
         echo "Analyzing ${f}"
     fi
     re='^[0-9]+$'
     existingbpm=`eyeD3  "${f}" 2>/dev/null  | grep BPM | awk -F ':' '{ print $2 }' | awk '{print $2}'`
-    sleep 1
     if ! [[ $existingbpm =~ $re ]] && [[ "$existingbpm" != "" ]]; then
         echo "Existing BPM jacked up!!" >&2
     elif [ $SkipExisting = 0 ];then
-        sleep 1
+        if [ $watchcount -gt 3 ];then
+            wait
+            watchcount=0
+        fi
+        watchcount=$(( watchcount + 1 ))
+        (
         filetime=$(stat -c '%y' "${f}")
         bpmtemp=$(bpm-tag -f -n "${f}" 2>&1| grep -v "not found" | awk -F ': ' '{ print $2}' | awk -F '.' '{print $1}')
         if ! [[ $bpmtemp =~ $re ]] ; then
             echo "No valid BPM detected!" >&2
-            #echo "${f}"
-            #echo "${bpmtemp}"
         else
-            #echo "$bpmtemp"
-            #echo "$existingbpm"
             if [ $SaveExisting = 1 ];then
                 if [[ "$bmptemp" =~ "$existingbpm" ]];then
                     echo "Warning: BPMs differ for ${f}!"
@@ -58,7 +59,9 @@ for f in $(find "${startdir}/" -name '*.mp3' );do
                 touch -d "${filetime}" "${f}"
             fi
         fi
+        ) &
     fi
-done
 
+done
+wait
 unset IFS

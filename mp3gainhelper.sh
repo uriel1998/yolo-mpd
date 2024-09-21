@@ -29,15 +29,24 @@ fi
 IFS=$'\n'
     echo "${startdir}"
     dirlist=$(find "${startdir}" -name '*.mp3' -printf '"%h"\n' | xargs -I {} realpath {} | sort -u)
-     
-    while read -r line; do    
+    watchcount=0
+    while read -r line; do  
+        if [ $watchcount -gt 3 ];then
+            wait
+            watchcount=0
+        fi
+        watchcount=$(( watchcount + 1 ))    
+        (
         SONGDIR=$(realpath "${line}")
         filetime=$(stat -c '%y' $(find "${line}" -maxdepth 1 -iname "*.mp3" -type f -printf '%p\n' | shuf |  head -n 1))
         find "${line}" -maxdepth 1 -iname "*.mp3" -type f -exec loudgain -I3 -S -L -a -k -s e {} +
         for f in $(find "${line}" -maxdepth 1 -iname "*.mp3" -type f); do
             touch -d "${filetime}" "${f}"
         done
+        ) &
+
     done < <(find "${startdir}" -name '*.mp3' -printf '"%h"\n' | xargs -I {} realpath {} | sort -u)
+    wait
     # strip other than idv2
     # write tags + extended
     # album (and track) gain
