@@ -45,7 +45,7 @@ fi
 
 function round_rectangles (){
     
-    #NEED TO CLEAN UP FILE HANDLING AND OUTPUT AND SHIT
+ 
     
   convert "${1}" \
       -format 'roundrectangle 1,1 %[fx:w+4],%[fx:h+4] 15,15' \
@@ -160,7 +160,7 @@ function round_rectangles (){
             SONGSTRING=$(mpc current --format "%artist% - %album% - %title%")
         fi
     fi
-
+    SONGDIR=$(dirname "${SONGFILE}")
 
     if [ -f "$SONGDIR"/folder.jpg ];then
         COVERFILE="$SONGDIR"/folder.jpg
