@@ -70,6 +70,7 @@ function show_album_art {
     else
 
         clear
+        cat "${YADSHOW_CACHE}/songshort"
         #in case not automatically listed
         cols=$(tput cols)
         lines=$(tput lines)
@@ -267,6 +268,9 @@ main () {
         show_album_art "${COVERFILE}"
     fi
 }
+
+# reset songinfo for startup
+echo "" > "${YADSHOW_CACHE}/songinfo"
 
 while true; do
 
