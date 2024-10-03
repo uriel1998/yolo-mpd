@@ -2,8 +2,10 @@
 
 ##############################################################################
 #
-#   
-#  (c) Steven Saus 2023
+#  A script to show album art covers in the terminal 
+#  Supports multiple players (through qdbus) and MPD
+#  Supports multiple terminal image viewers
+#  (c) Steven Saus 2024
 #  Licensed under the MIT license
 #
 ##############################################################################
@@ -16,7 +18,7 @@ COVERFILE=""
 MPD_MUSIC_BASE="${HOME}/Music"
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 DEFAULT_COVER="${SCRIPT_DIR}/defaultcover.jpg"
-
+SAME_SONG=0
 # checking if MPD_HOST is set or exists in .bashrc
 # if neither is set, will just go with defaults (which will fail if 
 # password is set.) 
@@ -60,9 +62,56 @@ function round_rectangles (){
 
 
 
-# Checking to see if currently playing/paused, otherwise exiting.
-# checks local players like audacity first, since it's always a local player, as opposed to MPD
+function show_album_art {
+
+# add in timg here. Also play with resizing to see if that helps the conversion
+    if [ ! -f "${COVERFILE}" ]; then
+        echo "### Something's horribly wrong"
+    else
+
+        clear
+        #in case not automatically listed
+        cols=$(tput cols)
+        lines=$(tput lines)
+        if [ "$cols" -gt "$lines" ]; then
+            gvalue="$cols"
+            lvalue="$lines"
+        else
+            gvalue="$lines"
+            lvalue="$cols"
+        fi
+        bvalue=$(echo "scale=4; $gvalue-3" | bc)
+        if [ "$bvalue" -gt 78 ];then
+            bvalue=78
+        fi
+        if [ -f $(which timg) ];then
+            timg -U -pq "${COVERFILE}"
+        else
+            if [ -f $(which jp2a) ];then
+                # if it looks bad, try removing invert
+                jp2a --colors --width=${cols} --invert "${COVERFILE}"
+            else
+                if [ -f $(which img2txt.py) ];then
+                    img2txt.py --ansi --targetAspect=0.5 --maxLen="$bvalue" "${COVERFILE}"
+                else
+                    if [ -f $(which asciiart) ];then
+                        asciiart -c -w "$bvalue" "${COVERFILE}" 
+                    else
+                        echo "No viewer available on $PATH"
+                        exit 99
+                    fi
+                fi
+            fi
+        fi
+    fi
+}
+
+find_playing_song (){
+	# Checking to see if currently playing/paused, otherwise exiting.
+	# checks local players like audacity first, since it's always a local player, as opposed to MPD
     IF_URL=0
+	SONGFILE=""
+	SONGSTRING=""
     aud_status=$(audtool playback-status)
     if [ "${aud_status}" == "playing" ];then
         SONGSTRING=$(audtool current-song)
@@ -158,8 +207,7 @@ function round_rectangles (){
             SONGSTRING=$(mpc current --format "%artist% - %album% - %title%")
         fi
     fi
-
-
+    SONGDIR=$(dirname "${SONGFILE}")
     if [ -f "$SONGDIR"/folder.jpg ];then
         COVERFILE="$SONGDIR"/folder.jpg
     else
@@ -176,23 +224,52 @@ function round_rectangles (){
             COVERFILE=${DEFAULT_COVER}
         fi
     fi
-
-    if [ "$COVERFILE" == "" ];then
-        echo "No cover or default cover found."
-        exit 99
+    bob=$(cat "${YADSHOW_CACHE}/songinfo")
+    # TEST HERE; if it's the same, then bounce back
+    if [[ "${SONGSTRING}" != "${bob}" ]]; then 
+		SAME_SONG=0
+        echo "${SONGSTRING}" > "${YADSHOW_CACHE}/songinfo"
+        if [ ${#SONGSTRING} -gt 60 ]; then
+            SONGSTRING=$(echo "${SONGSTRING}" | awk -F ' - ' '{print $1" - "$3}')
+            if [ ${#SONGSTRING} -gt 60 ]; then
+                SONGSTRING=$(echo "${SONGSTRING}" | awk -F ' - ' '{print $2}')
+                if [ ${#SONGSTRING} -gt 60 ]; then
+                    # taking out any "feat etc in parentheses"
+                    SONGSTRING=$(echo "${SONGSTRING}" | sed -e 's/([^)]*)//g' )
+                fi
+            fi
+        fi
+        echo "${SONGSTRING}" > "${YADSHOW_CACHE}/songshort"
+        
+        if [ "$COVERFILE" == "" ];then
+            # use the default cover in the script directory
+            COVERFILE=$(echo "No cover or default cover found.")
+        fi
+    else
+        SAME_SONG=1
     fi
+}
 
-    TEMPFILE3=$(mktemp)    
-    convert "${COVERFILE}" -resize "600x600" "${TEMPFILE3}"
-    round_rectangles "${TEMPFILE3}" "${YADSHOW_CACHE}/nowplaying.album.png"
+main () {
 
+   	SAME_SONG=0
+	find_playing_song
+	if [[ $SAME_SONG -eq 0 ]];then
+        # global var COVERFILE should be set now
+        TEMPFILE3=$(mktemp)    
+        convert "${COVERFILE}" -resize "600x600" "${TEMPFILE3}"
+        round_rectangles "${TEMPFILE3}" "${YADSHOW_CACHE}/nowplaying.album.png"
 
+        ##############################################################################
+        # Display what we have found
+        ##############################################################################
 
-##############################################################################
-# Display what we have found
-##############################################################################
+        show_album_art "${COVERFILE}"
+    fi
+}
 
+while true; do
 
-yad --window-icon=musique --always-print-result --on-top --skip-taskbar --image-on-top --borders=5 --title "$SONGSTRING" --text-align=center --image "$YADSHOW_CACHE"/nowplaying.album.png --timeout=10 --no-buttons
-
-read
+	main
+	sleep 2
+done
