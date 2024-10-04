@@ -10,23 +10,23 @@ Various MP3 and MPD tweaks, tips, tools, and scripts I've put together or found 
 
   3. [yad_show_mpd](yad_show_mpd)
 
-  4. [mpdcontrol.sh](mpdcontrol.sh)
+  4. [terminalcovers.sh](terminalcovers.sh)
 
-  5. [terminal-multiplexer](terminal-multiplexer)
+  5. [mpdcontrol.sh](mpdcontrol.sh)
 
-  6. [bpmhelper](bpmhelper)
+  6. [terminal-multiplexer](terminal-multiplexer)
 
-  7. [mp3gainhelper](mp3gainhelper)
+  7. [bpmhelper](bpmhelper)
 
-  8. [terminal_multiplexer](terminal_multiplexer)
+  8. [mp3gainhelper](mp3gainhelper)
 
-  9. [bpmhelper.sh](bpmhelper.sh)
+  9. [terminal_multiplexer](terminal_multiplexer)
 
-  10. [mp3gainhelper.sh](mp3gainhelper.sh)
+  10. [bpmhelper.sh](bpmhelper.sh)
 
-  11. [webserver.covers.sh](webserver.covers.sh)
+  11. [mp3gainhelper.sh](mp3gainhelper.sh)
 
-  12. [terminalcovers.sh](terminalcovers.sh)
+  12. [webserver.covers.sh](webserver.covers.sh)
 
   13. [mediakey.sh](mediakey.sh)
 
@@ -132,6 +132,49 @@ you *must* use `MPD_HOST=Password@host` for it to work.
 ![output](https://github.com/uriel1998/yolo-mpd/raw/master/yad_show_mpd.png "What it looks like")
 
 
+# terminalcovers.sh
+
+
+The first version is kind of a hack-y way to show terminal covers in the terminal. It's `terminal_covers_old.sh` if you're interested.
+
+The second version of `terminal_covers.sh` is *much* better.  Using the basic logic (and limited 
+cache system) as `yadshow` above, along with help from `qdbus`, it's able to pick up
+covers from a much wider range of players without any user input.  Currently supports 
+Clementine, Strawberry, PlexAmp, and MPD out of the box (in that order of priority).  
+
+### Note for MPD
+
+You should set MPD_HOST or have it exist in `.bashrc`; if neither is set, it will 
+go with the defaults, which *will* fail if you have a password set.  `MPD_HOST=PASSWORD@HOST`  If you have a non-standard port, you'll need to edit the script.
+
+`terminal_covers.sh` also uses a range of tools to convert the image into something even a pretty 
+non-advanced terminal can show.  It rounds rectangles of the coverart (useful if you pickup the resulting image 
+with something like `conky`) using `imagemagick` if installed, and will use (in this order) 
+these tools to render the images:  `timg`, `jp2a`, `img2txt.py`, `asciiart`.  `jp2a` and `asciiart` are 
+in Debian repositories, but `timg` is worth it.
+
+`terminal_covers.sh`  can also optionally give you a notification via `notify-send` if you run it with `--notify` as the (only) argument.
+
+It runs in a terminal window on a timed 2-second loop. If the song information is
+unchanged, it does nothing. If it's changed (either because another player started or the track changed), 
+then it figures out what the album art is and goes from there.
+
+
+Dependencies: 
+
+* [mpc](http://git.musicpd.org/cgit/master/mpc.git/)
+* [qdbus](https://manpages.ubuntu.com/manpages/focal/man1/qdbus.1.html) -- in the `qtchooser` package on Debian
+
+One or more of the following:  
+* [timg](https://github.com/hzeller/timg)
+* [jp2a](https://github.com/cslarsen/jp2a)
+* [img2txt](https://pypi.org/project/img2txt/)
+* [asciiart](https://commandmasters.com/commands/asciiart-linux/)
+
+![output](https://github.com/uriel1998/yolo-mpd/raw/master/terminal_covers_2.gif "What it looks like")
+
+(The image above also has `cava`, `scope-tui`, and `ternminal` in it, and is using `timg` for the art.)
+
 
 # mpdcontrol.sh
 
@@ -215,33 +258,6 @@ copying the cover files to the webserver root. (You need to edit this, obvs.)
 
 Dependencies:
 * [rsync](https://en.wikipedia.org/wiki/Rsync)
-
-# terminalcovers.sh
-
-A kind of hack-y way to show terminal covers in the terminal.  Uses 
-either AA-lib or libcaca.  AA-lib looks MUCH better, but doesn't 
-automatically exit, so requires killall (yeah, that sucks).  You will 
-need to *edit* the script to choose a different renderer.
-
-Dependencies: 
-* [mpc](http://git.musicpd.org/cgit/master/mpc.git/)
-
-One or more of the following:  
-
-* [AA-lib](http://aa-project.sourceforge.net/aview/)
-* [libcaca](http://caca.zoy.org/wiki/libcaca)
-* [img2text](https://github.com/hit9/img2txt)
-
-### AA-lib output
-![AA-lib](https://github.com/uriel1998/yolo-mpd/raw/master/aaview_output.png "AA-lib output")
-### libcaca output
-![LibCaca](https://github.com/uriel1998/yolo-mpd/raw/master/libcaca_output.png "libcaca output")
-
-There's a second version, based more on `yadshow` (above), which works a *lot* better, and 
-allows for *far* more media players, also will use `j2pa` or `timg` to render images, and 
-does so pretty transparently.
-
-![output](https://github.com/uriel1998/yolo-mpd/raw/master/terminal_covers_2.gif "What it looks like")
 
 
 # mediakey.sh
