@@ -237,6 +237,13 @@ One or more of the following:
 ### libcaca output
 ![LibCaca](https://github.com/uriel1998/yolo-mpd/raw/master/libcaca_output.png "libcaca output")
 
+There's a second version, based more on `yadshow` (above), which works a *lot* better, and 
+allows for *far* more media players, also will use `j2pa` or `timg` to render images, and 
+does so pretty transparently.
+
+![output](https://github.com/uriel1998/yolo-mpd/raw/master/terminal_covers_2.gif "What it looks like")
+
+
 # mediakey.sh
 
 This script uses the MPRIS interface to control your media players.  
