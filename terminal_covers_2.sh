@@ -108,11 +108,11 @@ function show_album_art {
 }
 
 find_playing_song (){
-	# Checking to see if currently playing/paused, otherwise exiting.
-	# checks local players like audacity first, since it's always a local player, as opposed to MPD
+    # Checking to see if currently playing/paused, otherwise exiting.
+    # checks local players like audacity first, since it's always a local player, as opposed to MPD
     IF_URL=0
-	SONGFILE=""
-	SONGSTRING=""
+    SONGFILE=""
+    SONGSTRING=""
     aud_status=$(audtool playback-status)
     if [ "${aud_status}" == "playing" ];then
         SONGSTRING=$(audtool current-song)
@@ -228,7 +228,7 @@ find_playing_song (){
     bob=$(cat "${YADSHOW_CACHE}/songinfo")
     # TEST HERE; if it's the same, then bounce back
     if [[ "${SONGSTRING}" != "${bob}" ]]; then 
-		SAME_SONG=0
+        SAME_SONG=0
         echo "${SONGSTRING}" > "${YADSHOW_CACHE}/songinfo"
         if [ ${#SONGSTRING} -gt 60 ]; then
             SONGSTRING=$(echo "${SONGSTRING}" | awk -F ' - ' '{print $1" - "$3}')
@@ -253,9 +253,9 @@ find_playing_song (){
 
 main () {
 
-   	SAME_SONG=0
-	find_playing_song
-	if [[ $SAME_SONG -eq 0 ]];then
+    SAME_SONG=0
+    find_playing_song
+    if [[ $SAME_SONG -eq 0 ]];then
         # global var COVERFILE should be set now
         TEMPFILE3=$(mktemp)    
         convert "${COVERFILE}" -resize "600x600" "${TEMPFILE3}"
@@ -274,6 +274,6 @@ echo "" > "${YADSHOW_CACHE}/songinfo"
 
 while true; do
 
-	main
-	sleep 2
+    main
+    sleep 2
 done
