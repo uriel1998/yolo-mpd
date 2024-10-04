@@ -10,7 +10,7 @@
 #
 ##############################################################################
 
-
+YAD_NOTIFY=""
 SONGSTRING=""
 SONGFILE=""
 SONGDIR=""
@@ -261,6 +261,9 @@ main () {
         convert "${COVERFILE}" -resize "600x600" "${TEMPFILE3}"
         round_rectangles "${TEMPFILE3}" "${YADSHOW_CACHE}/nowplaying.album.png"
 
+        if [ $YAD_NOTIFY -eq 1 ];then
+            notify-send --icon=${YADSHOW_CACHE}/nowplaying.album.png "$(cat ${YADSHOW_CACHE}/songinfo)" --urgency=low
+        fi
         ##############################################################################
         # Display what we have found
         ##############################################################################
@@ -271,6 +274,11 @@ main () {
 
 # reset songinfo for startup
 echo "" > "${YADSHOW_CACHE}/songinfo"
+if [ "$1" == "--notify" ];then
+    YAD_NOTIFY=1
+else 
+    YAD_NOTIFY=0
+fi
 
 while true; do
 
