@@ -10,23 +10,23 @@ Various MP3 and MPD tweaks, tips, tools, and scripts I've put together or found 
 
   3. [yad_show_mpd](yad_show_mpd)
 
-  4. [mpdcontrol.sh](mpdcontrol.sh)
+  4. [terminalcovers.sh](terminalcovers.sh)
 
-  5. [terminal-multiplexer](terminal-multiplexer)
+  5. [mpdcontrol.sh](mpdcontrol.sh)
 
-  6. [bpmhelper](bpmhelper)
+  6. [terminal-multiplexer](terminal-multiplexer)
 
-  7. [mp3gainhelper](mp3gainhelper)
+  7. [bpmhelper](bpmhelper)
 
-  8. [terminal_multiplexer](terminal_multiplexer)
+  8. [mp3gainhelper](mp3gainhelper)
 
-  9. [bpmhelper.sh](bpmhelper.sh)
+  9. [terminal_multiplexer](terminal_multiplexer)
 
-  10. [mp3gainhelper.sh](mp3gainhelper.sh)
+  10. [bpmhelper.sh](bpmhelper.sh)
 
-  11. [webserver.covers.sh](webserver.covers.sh)
+  11. [mp3gainhelper.sh](mp3gainhelper.sh)
 
-  12. [terminalcovers.sh](terminalcovers.sh)
+  12. [webserver.covers.sh](webserver.covers.sh)
 
   13. [mediakey.sh](mediakey.sh)
 
@@ -117,7 +117,7 @@ This script -- which should also have an image file named `defaultcover.jpg` in
 its directory -- requires [mpc](http://git.musicpd.org/cgit/master/mpc.git/), 
 [imagemagick](https://imagemagick.org/), and [YAD](https://sourceforge.net/projects/yad-dialog/) to 
 create a popup with the albumart and trackname of the currently playing song from 
-[MPD, the music player daemon](https://www.musicpd.org/).
+[MPD, the music player daemon](https://www.musicpd.org/) or `audacity` with the use of `audtool`.
 
 It assumes your music directory is in `${HOME}/Music`, that your album art is 
 named either `cover.jpg` or `folder.jpg` and that `mpc` is already 
@@ -132,10 +132,53 @@ you *must* use `MPD_HOST=Password@host` for it to work.
 ![output](https://github.com/uriel1998/yolo-mpd/raw/master/yad_show_mpd.png "What it looks like")
 
 
+# terminalcovers.sh
+
+
+The first version is kind of a hack-y way to show terminal covers in the terminal. It's `terminal_covers_old.sh` if you're interested.
+
+The second version of `terminal_covers.sh` is *much* better.  Using the basic logic (and limited 
+cache system) as `yadshow` above, along with help from `qdbus`, it's able to pick up
+covers from a much wider range of players without any user input.  Currently supports 
+Clementine, Strawberry, PlexAmp, and MPD out of the box (in that order of priority).  
+
+### Note for MPD
+
+You should set MPD_HOST or have it exist in `.bashrc`; if neither is set, it will 
+go with the defaults, which *will* fail if you have a password set.  `MPD_HOST=PASSWORD@HOST`  If you have a non-standard port, you'll need to edit the script.
+
+`terminal_covers.sh` also uses a range of tools to convert the image into something even a pretty 
+non-advanced terminal can show.  It rounds rectangles of the coverart (useful if you pickup the resulting image 
+with something like `conky`) using `imagemagick` if installed, and will use (in this order) 
+these tools to render the images:  `timg`, `jp2a`, `img2txt.py`, `asciiart`.  `jp2a` and `asciiart` are 
+in Debian repositories, but `timg` is worth it.
+
+`terminal_covers.sh`  can also optionally give you a notification via `notify-send` if you run it with `--notify` as the (only) argument.
+
+It runs in a terminal window on a timed 2-second loop. If the song information is
+unchanged, it does nothing. If it's changed (either because another player started or the track changed), 
+then it figures out what the album art is and goes from there.
+
+
+Dependencies: 
+
+* [mpc](http://git.musicpd.org/cgit/master/mpc.git/)
+* [qdbus](https://manpages.ubuntu.com/manpages/focal/man1/qdbus.1.html) -- in the `qtchooser` package on Debian
+
+One or more of the following:  
+* [timg](https://github.com/hzeller/timg)
+* [jp2a](https://github.com/cslarsen/jp2a)
+* [img2txt](https://pypi.org/project/img2txt/)
+* [asciiart](https://commandmasters.com/commands/asciiart-linux/)
+
+![output](https://github.com/uriel1998/yolo-mpd/raw/master/terminal_covers_2.gif "What it looks like")
+
+(The image above also has `cava`, `scope-tui`, and `ternminal` in it, and is using `timg` for the art.)
+
 
 # mpdcontrol.sh
 
-Select whether you want to choose a playlist, or by album, artist, or genre. Clears playlist, adds what you chose, starts playing. The SSH version is for exactly that, especially if you don't have `pick` on that machine.
+Select whether you want to choose a playlist, or by album, artist, or genre. Clears playlist (IF YOU USE THE SWITCH -c), adds what you chose, starts playing. The SSH version is for exactly that, especially if you don't have `pick` on that machine.
 
 Optionally, if `fzf` is installed on the system, it will seamlessly substitute that program in, with the option to select multiple entries at once (use TAB). 
 
@@ -174,17 +217,15 @@ One or more of the following:
 
 # bpmhelper.sh
 
-Uses the bpm-tools package, which analyzes BPM quite nicely on linux, 
-but then writes tags that overwrite album and genre tags. So this 
-wrapper uses eyeD3 to determine if a BPM is already written, then 
-analyzes the file, then uses eyeD3 to do the writing to the file. 
-I already have eyeD3 for the album art script; a solution 
+Uses the bpm-tag package, which analyzes BPM quite nicely on linux, but doesn't
+preserve the file date. So this wrapper uses eyeD3 to determine if a BPM is 
+already written, then if not, analyzes the file, then uses eyeD3 to do the 
+writing to the file. I already have eyeD3 for the album art script; a solution 
 that does not rely on that dependency can be found 
 at [bpmwrap](https://github.com/meridius/bpmwrap).
 
-`bpm-tools` outputs error messages if you do not have id3v2 and sox with mp3 
-headers already installed and thus makes the script fail. You can either tweak 
-the script or install the packages `sox`, `libsox-fmt-mp3`, and `id3v2`.
+`bpm-tag` outputs error messages if you do not have id3v2 already installed and 
+thus makes the script fail. Install the debian package `id3v2`.
 
 Accepts two command line arguments (optional)
 
@@ -200,13 +241,14 @@ Dependencies
 
 # mp3gainhelper.sh
 
-Performs mp3gain analysis and writes to id3 tags. The MP3Gain utility apparently writes by default to APE tags, which aren't used by MPD. While `mp3gain` no longer has issues corrupting ID3 data if you write directly to ID3 tags, it will crash and abort if it runs into an error instead of continuing onward. That and the options are a pain, so this helps.
+Well, switched to `loudgain` which uses a (better) way of calculating gain. HOWEVER, unlike `mp3gain`, 
+it does not have a way to preserve file date and time.  So the gainhelper is still here. 
 
 Accepts only one command line argument (optional) giving the directory to analyze. Otherwise analyzes the current directory *and all subdirectories*.
 
 Dependencies: 
-* [mp3gain](http://mp3gain.sourceforge.net/)
-* ape2id3 from [MPD Wiki](http://mpd.wikia.com/wiki/Hack:ape2id3.py) or [this gist](https://gist.github.com/uriel1998/6333da780d44e59abbc1761700104329)
+* [loudgain](https://github.com/Moonbase59/loudgain)
+
 
 # webserver.covers.sh
 
@@ -217,26 +259,6 @@ copying the cover files to the webserver root. (You need to edit this, obvs.)
 Dependencies:
 * [rsync](https://en.wikipedia.org/wiki/Rsync)
 
-# terminalcovers.sh
-
-A kind of hack-y way to show terminal covers in the terminal.  Uses 
-either AA-lib or libcaca.  AA-lib looks MUCH better, but doesn't 
-automatically exit, so requires killall (yeah, that sucks).  You will 
-need to *edit* the script to choose a different renderer.
-
-Dependencies: 
-* [mpc](http://git.musicpd.org/cgit/master/mpc.git/)
-
-One or more of the following:  
-
-* [AA-lib](http://aa-project.sourceforge.net/aview/)
-* [libcaca](http://caca.zoy.org/wiki/libcaca)
-* [img2text](https://github.com/hit9/img2txt)
-
-### AA-lib output
-![AA-lib](https://github.com/uriel1998/yolo-mpd/raw/master/aaview_output.png "AA-lib output")
-### libcaca output
-![LibCaca](https://github.com/uriel1998/yolo-mpd/raw/master/libcaca_output.png "libcaca output")
 
 # mediakey.sh
 
