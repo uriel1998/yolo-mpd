@@ -171,7 +171,7 @@ One or more of the following:
 * [img2txt](https://pypi.org/project/img2txt/)
 * [asciiart](https://commandmasters.com/commands/asciiart-linux/)
 
-![output](https://github.com/uriel1998/yolo-mpd/raw/master/terminal_covers_2.gif "What it looks like")
+![output](https://github.com/uriel1998/yolo-mpd/raw/master/terminal_covers.gif "What it looks like")
 
 (The image above also has `cava`, `scope-tui`, and `ternminal` in it, and is using `timg` for the art.)
 
