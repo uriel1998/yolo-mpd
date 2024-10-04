@@ -144,8 +144,7 @@ Clementine, Strawberry, PlexAmp, and MPD out of the box (in that order of priori
 
 ### Note for MPD
 
-You should set MPD_HOST or have it exist in `.bashrc`; if neither is set, it will 
-go with the defaults, which *will* fail if you have a password set.  `MPD_HOST=PASSWORD@HOST`  If you have a non-standard port, you'll need to edit the script.
+You should set MPD_HOST or have it exist in `.bashrc`; if neither is set, it will go with the defaults, which *will* fail if you have a password set.  `MPD_HOST=PASSWORD@HOST`  If you have a non-standard port, you'll need to edit the script.  It assumes your music's base directory is `${HOME}/Music`.
 
 `terminal_covers.sh` also uses a range of tools to convert the image into something even a pretty 
 non-advanced terminal can show.  It rounds rectangles of the coverart (useful if you pickup the resulting image 
@@ -157,7 +156,9 @@ in Debian repositories, but `timg` is worth it.
 
 It runs in a terminal window on a timed 2-second loop. If the song information is
 unchanged, it does nothing. If it's changed (either because another player started or the track changed), 
-then it figures out what the album art is and goes from there.
+then it figures out what the album art is and goes from there.  
+
+You can also use the output files in `${HOME}/.cache/yadshow/` with other programs to get the song information and cover as well.
 
 
 Dependencies: 
