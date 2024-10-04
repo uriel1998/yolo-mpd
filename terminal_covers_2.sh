@@ -257,9 +257,14 @@ main () {
     find_playing_song
     if [[ $SAME_SONG -eq 0 ]];then
         # global var COVERFILE should be set now
-        TEMPFILE3=$(mktemp)    
-        convert "${COVERFILE}" -resize "600x600" "${TEMPFILE3}"
-        round_rectangles "${TEMPFILE3}" "${YADSHOW_CACHE}/nowplaying.album.png"
+        # do we have imagemagick?
+        if [ -f $(which convert) ];then
+            TEMPFILE3=$(mktemp)    
+            convert "${COVERFILE}" -resize "600x600" "${TEMPFILE3}"
+            round_rectangles "${TEMPFILE3}" "${YADSHOW_CACHE}/nowplaying.album.png"
+        else
+            cp -f "${COVERFILE}" "${YADSHOW_CACHE}/nowplaying.album.png"
+        fi
 
         if [ $YAD_NOTIFY -eq 1 ];then
             notify-send --icon=${YADSHOW_CACHE}/nowplaying.album.png "$(cat ${YADSHOW_CACHE}/songinfo)" --urgency=low
