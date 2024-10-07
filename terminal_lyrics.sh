@@ -14,10 +14,9 @@ YAD_NOTIFY=""
 SONGSTRING=""
 SONGFILE=""
 SONGDIR=""
-COVERFILE=""
+LYRICSFILE=""
 MPD_MUSIC_BASE="${HOME}/Music"
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-DEFAULT_COVER="${SCRIPT_DIR}/defaultcover.jpg"
 SAME_SONG=0
 # checking if MPD_HOST is set or exists in .bashrc
 # if neither is set, will just go with defaults (which will fail if 
@@ -40,71 +39,9 @@ if [ ! -d "${YADSHOW_CACHE}" ];then
     mkdir -p "${YADSHOW_CACHE}"
 fi
 
-# rounding rectangles:
-# https://www.imagemagick.org/Usage/compose/
-# https://legacy.imagemagick.org/Usage/thumbnails/#rounded_borde
 
-function round_rectangles (){
+function show_lyrics {
 
-    
-  convert "${1}" \
-      -format 'roundrectangle 1,1 %[fx:w+4],%[fx:h+4] 15,15' \
-      -write info:tmp.mvg \
-      -alpha set -bordercolor none -border 3 \
-      \( +clone -alpha transparent -background none \
-         -fill white -stroke none -strokewidth 0 -draw @tmp.mvg \) \
-      -compose DstIn -composite \
-      \( +clone -alpha transparent -background none \
-         -fill none -stroke black -strokewidth 3 -draw @tmp.mvg \
-         -fill none -stroke white -strokewidth 1 -draw @tmp.mvg \) \
-      -compose Over -composite               "${2}"
-}
-
-
-
-function show_album_art {
-
-# add in timg here. Also play with resizing to see if that helps the conversion
-    if [ ! -f "${COVERFILE}" ]; then
-        echo "### Something's horribly wrong"
-    else
-
-        #clear
-        cat "${YADSHOW_CACHE}/songshort"
-        #in case not automatically listed
-        cols=$(tput cols)
-        lines=$(tput lines)
-        if [ "$cols" -gt "$lines" ]; then
-            gvalue="$cols"
-            lvalue="$lines"
-        else
-            gvalue="$lines"
-            lvalue="$cols"
-        fi
-        bvalue=$(echo "scale=4; $gvalue-3" | bc)
-        if [ "$bvalue" -gt 78 ];then
-            bvalue=78
-        fi
-        if [ -f $(which timg) ];then
-            timg -U -pq "${COVERFILE}"
-        else
-            if [ -f $(which jp2a) ];then
-                # if it looks bad, try removing invert
-                jp2a --colors --width=${cols} --invert "${COVERFILE}"
-            else
-                if [ -f $(which img2txt.py) ];then
-                    img2txt.py --ansi --targetAspect=0.5 --maxLen="$bvalue" "${COVERFILE}"
-                else
-                    if [ -f $(which asciiart) ];then
-                        asciiart -c -w "$bvalue" "${COVERFILE}" 
-                    else
-                        echo "No viewer available on $PATH"
-                        exit 99
-                    fi
-                fi
-            fi
-        fi
-    fi
 }
 
 find_playing_song (){
@@ -208,41 +145,16 @@ find_playing_song (){
             SONGSTRING=$(mpc current --format "%artist% - %album% - %title%")
         fi
     fi
-    SONGDIR=$(dirname "${SONGFILE}")
-    if [ -f "$SONGDIR"/folder.jpg ];then
-        COVERFILE="$SONGDIR"/folder.jpg
-    else
-        if [ -f "$SONGDIR"/cover.jpg ];then
-            COVERFILE="$SONGDIR"/cover.jpg
-        fi
-    fi
 
-    if [ "$COVERFILE" == "" ];then
-        if [ -f "${coverurl}" ];then
-            COVERFILE="${coverurl}"
-            coverurl=""
-        else
-            COVERFILE=${DEFAULT_COVER}
-        fi
-    fi
     bob=$(cat "${YADSHOW_CACHE}/songinfo")
     # TEST HERE; if it's the same, then bounce back
     if [[ "${SONGSTRING}" != "${bob}" ]]; then 
         SAME_SONG=0
-        echo "${SONGSTRING}" > "${YADSHOW_CACHE}/songinfo"
-        if [ ${#SONGSTRING} -gt 60 ]; then
-            SONGSTRING=$(echo "${SONGSTRING}" | awk -F ' - ' '{print $1" - "$3}')
-            if [ ${#SONGSTRING} -gt 60 ]; then
-                SONGSTRING=$(echo "${SONGSTRING}" | awk -F ' - ' '{print $2}')
-                if [ ${#SONGSTRING} -gt 60 ]; then
-                    # taking out any "feat etc in parentheses"
-                    SONGSTRING=$(echo "${SONGSTRING}" | sed -e 's/([^)]*)//g' )
-                fi
-            fi
-        fi
-        echo "${SONGSTRING}" > "${YADSHOW_CACHE}/songshort"
-        
-        if [ "$COVERFILE" == "" ];then
+
+        # find lyrics
+        # using SONGFILE not dir
+
+        if [ "$LYRICSFILE" == "" ];then
             # use the default cover in the script directory
             COVERFILE=$(echo "No cover or default cover found.")
         fi
@@ -256,36 +168,23 @@ main () {
     SAME_SONG=0
     find_playing_song
     if [[ $SAME_SONG -eq 0 ]];then
-        # global var COVERFILE should be set now
-        # do we have imagemagick?
-        if [ -f $(which convert) ];then
-            TEMPFILE3=$(mktemp)    
-            convert "${COVERFILE}" -resize "600x600" "${TEMPFILE3}"
-            round_rectangles "${TEMPFILE3}" "${YADSHOW_CACHE}/nowplaying.album.png"
-        else
-            cp -f "${COVERFILE}" "${YADSHOW_CACHE}/nowplaying.album.png"
-        fi
-
-        if [ $YAD_NOTIFY -eq 1 ];then
-            notify-send --icon=${YADSHOW_CACHE}/nowplaying.album.png "$(cat ${YADSHOW_CACHE}/songinfo)" --urgency=low
-        fi
+        # global var LYRICSFILE should be set now
+        cp -f "${LYRICSFILE}" "${YADSHOW_CACHE}/nowplaying.lyrics.md"
         ##############################################################################
         # Display what we have found
         ##############################################################################
+        show_lyrics "${LYRICSFILE}"
 
-        show_album_art "${COVERFILE}"
     fi
 }
 
 # reset songinfo for startup
 echo "" > "${YADSHOW_CACHE}/songinfo"
-if [ "$1" == "--notify" ];then
-    YAD_NOTIFY=1
-else 
-    YAD_NOTIFY=0
-fi
+
 
 while true; do
+    #$TMUX_PANE is the pane 
+#    (rich ./sidebar &)  ;notify-send "hi";sleep 5;notify-send "hsitl";sleep 5;tmux send-keys '';ls
 
     main
     sleep 2
