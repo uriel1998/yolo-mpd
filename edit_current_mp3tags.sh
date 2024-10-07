@@ -9,14 +9,13 @@
 #  Licensed under the MIT license
 #
 ##############################################################################
- 
+
 SONGSTRING=""
 SONGFILE=""
 SONGDIR=""
-LYRICSFILE=""
 MPD_MUSIC_BASE="${HOME}/Music"
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-SAME_SONG=0
+
 # checking if MPD_HOST is set or exists in .bashrc
 # if neither is set, will just go with defaults (which will fail if 
 # password is set.) 
@@ -32,13 +31,6 @@ if [ -z "${XDG_CACHE_HOME}" ];then
     export XDG_CACHE_HOME="${HOME}/.config"
 fi
 
-YADSHOW_CACHE="${XDG_CACHE_HOME}/yadshow"
-if [ ! -d "${YADSHOW_CACHE}" ];then
-    echo "Making cache directory"
-    mkdir -p "${YADSHOW_CACHE}"
-fi
-
- 
 find_playing_song (){
     # Checking to see if currently playing/paused, otherwise exiting.
     # checks local players like audacity first, since it's always a local player, as opposed to MPD
@@ -141,46 +133,11 @@ find_playing_song (){
         fi
     fi
 
-    bob=$(head -n1 "${YADSHOW_CACHE}/nowplaying.lyrics.md")
-    # TEST HERE; if it's the same, then bounce back
-    if [[ "${SONGSTRING}" != "${bob:2}" ]]; then 
-        SAME_SONG=0
-        LYRICSFILE="${SONGFILE%.*}.txt"
-        if [ "$LYRICSFILE" == "" ] || [ ! -f "${LYRICSFILE}" ];then
-            # You *COULD* check inside the music file, I guess...
-            # use the default cover in the script directory
-            # So need a default lyrics file.... SCRIPT_DIR
-            LYRICSFILE="${SCRIPT_DIR}/default_lyrics.md"
-        fi
-    else
-        SAME_SONG=1
-    fi
 }
 
-main () {
 
-    SAME_SONG=0
     find_playing_song
 
-    if [[ $SAME_SONG -eq 0 ]];then
-        notify-send "HI"
-        # global var LYRICSFILE should be set now
-        echo "# ${SONGSTRING}" > "${YADSHOW_CACHE}/nowplaying.lyrics.md"
-        echo " " >> "${YADSHOW_CACHE}/nowplaying.lyrics.md"
-        cat "${LYRICSFILE}" >> "${YADSHOW_CACHE}/nowplaying.lyrics.md"
-        clear
-        (rich "${YADSHOW_CACHE}/nowplaying.lyrics.md" &)
-        ##############################################################################
-        # Display what we have found
-        ##############################################################################
-    fi
-}
-
-# reset songinfo for startup
-echo "" > "${YADSHOW_CACHE}/songinfo"
-
-
-while true; do
-    main
-    sleep 2
-done
+echo "${SONGFILE}"
+#echo "${SONGSTRING}"
+puddletag "${SONGFILE}"
