@@ -163,7 +163,6 @@ main () {
     find_playing_song
 
     if [[ $SAME_SONG -eq 0 ]];then
-        notify-send "HI"
         # global var LYRICSFILE should be set now
         echo "# ${SONGSTRING}" > "${YADSHOW_CACHE}/nowplaying.lyrics.md"
         echo " " >> "${YADSHOW_CACHE}/nowplaying.lyrics.md"

@@ -64,12 +64,11 @@ function round_rectangles (){
 
 function show_album_art {
 
-# add in timg here. Also play with resizing to see if that helps the conversion
     if [ ! -f "${COVERFILE}" ]; then
         echo "### Something's horribly wrong"
     else
 
-        #clear
+        clear
         cat "${YADSHOW_CACHE}/songshort"
         #in case not automatically listed
         cols=$(tput cols)
