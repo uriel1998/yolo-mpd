@@ -26,11 +26,38 @@ clearmode (){
         fi
 }
     
-    echo -e "\E[0;32m(\E[0;37mg\E[0;32m)enre, (\E[0;37mA\E[0;32m)lbumartist, (\E[0;37ma\E[0;32m)rtist, a(\E[0;37ml\E[0;32m)bum, (\E[0;37ms\E[0;32m)ong, (\E[0;37mp\E[0;32m)laylist, or (\E[0;37mq\E[0;32m)uit? "; tput sgr0
+    echo -e "\E[0;32m(\E[0;37mc\E[0;32m)ustom, \E[0;32m(\E[0;37mg\E[0;32m)enre, (\E[0;37mA\E[0;32m)lbumartist, (\E[0;37ma\E[0;32m)rtist, a(\E[0;37ml\E[0;32m)bum, (\E[0;37ms\E[0;32m)ong, (\E[0;37mp\E[0;32m)laylist, or (\E[0;37mq\E[0;32m)uit? "; tput sgr0
     read -r CHOICE
 
     
     case "$CHOICE" in
+        "c") 
+            if [ -f "$(which fzf)" ];then 
+                result=$(mpc --host "$MPD_HOST" list genre | fzf --multi)
+            else
+                result=$(mpc --host "$MPD_HOST" list genre | pick)
+            fi
+            
+            selection=""
+            while IFS= read -r genre; do
+                bob=$(mpc --host "$MPD_HOST" -f "%title% ‡ %artist%" search genre "$genre")
+                selection=$(echo "$selection $bob")
+            done <<< "$result"        
+        
+        
+            if [ -f "$(which fzf)" ];then 
+                result=$(echo "$selection" | fzf --multi | awk -F ' ‡' '{print $1}')
+            else
+                result=$(echo "$selection" | pick | awk -F ' ‡' '{print $1}')
+            fi            
+            clearmode
+            while IFS= read -r title; do
+                mpc --host "$MPD_HOST" findadd title "${title}" 
+            done <<< "$result"
+            mpc --host "$MPD_HOST" play
+        ;;
+
+
         "s") 
             if [ -f "$(which fzf)" ];then 
                 result=$(mpc --host "$MPD_HOST" list title | fzf --multi)
@@ -40,8 +67,8 @@ clearmode (){
             clearmode
             while IFS= read -r title; do
                 mpc --host "$MPD_HOST" findadd title "${title}" 
-                mpc --host "$MPD_HOST" play
             done <<< "$result"
+            mpc --host "$MPD_HOST" play
         ;;
 
         "A") 
