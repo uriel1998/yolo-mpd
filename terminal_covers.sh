@@ -261,6 +261,7 @@ main () {
             TEMPFILE3=$(mktemp)    
             convert "${COVERFILE}" -resize "600x600" "${TEMPFILE3}"
             round_rectangles "${TEMPFILE3}" "${YADSHOW_CACHE}/nowplaying.album.png"
+            rm "${TEMPFILE3}"
         else
             cp -f "${COVERFILE}" "${YADSHOW_CACHE}/nowplaying.album.png"
         fi

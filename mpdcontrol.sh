@@ -43,7 +43,10 @@ clearmode (){
                 bob=$(mpc --host "$MPD_HOST" -f "%title% ‡ %artist%" search genre "$genre")
                 selection=$(echo "$selection $bob")
             done <<< "$result"        
-        
+        ### TODO
+        ### THIS IS IT - WE CAN ACTUALLY PUT IN A SHORTCUT MATCH FOR OTHER FIELDS HERE TOO!
+        ### EG g:${genre} so if you want to limit what you're seeing, you can type g:Rock
+        ### I THINK if FZF does each term separately
         
             if [ -f "$(which fzf)" ];then 
                 result=$(echo "$selection" | fzf --multi | awk -F ' ‡' '{print $1}')
