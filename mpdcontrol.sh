@@ -51,7 +51,7 @@ clearmode (){
             if [ -f "$(which fzf)" ];then 
                 result=$(echo "$selection" | fzf --multi)
             else
-                result=$(echo "$selection" | pick | awk -F ' ‡' '{print $1}')
+                result=$(echo "$selection" | pick )
             fi            
             clearmode
             while IFS= read -r line; do
