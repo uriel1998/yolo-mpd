@@ -47,15 +47,19 @@ clearmode (){
         ### THIS IS IT - WE CAN ACTUALLY PUT IN A SHORTCUT MATCH FOR OTHER FIELDS HERE TOO!
         ### EG g:${genre} so if you want to limit what you're seeing, you can type g:Rock
         ### I THINK if FZF does each term separately
-        
+        # TODO - findadd BOTH artist and title, lololol
             if [ -f "$(which fzf)" ];then 
-                result=$(echo "$selection" | fzf --multi | awk -F ' ‡' '{print $1}')
+                result=$(echo "$selection" | fzf --multi)
             else
                 result=$(echo "$selection" | pick | awk -F ' ‡' '{print $1}')
             fi            
             clearmode
-            while IFS= read -r title; do
-                mpc --host "$MPD_HOST" findadd title "${title}" 
+            while IFS= read -r line; do
+                title=$(echo "${line}" | awk -F ' ‡' '{print $1}') 
+                artist=$(echo "${line}" | awk -F '‡ ' '{print $2}') 
+                echo "$title"
+                echo "$artist"
+                mpc --host "$MPD_HOST" findadd title "${title}" artist "${artist}"
             done <<< "$result"
             mpc --host "$MPD_HOST" play
         ;;
