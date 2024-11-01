@@ -2,9 +2,7 @@
 
 ##############################################################################
 #
-#  A script to show album art covers in the terminal 
-#  Supports multiple players (through qdbus) and MPD
-#  Supports multiple terminal image viewers
+#  To correct the tags of whatever is currently playing
 #  (c) Steven Saus 2024
 #  Licensed under the MIT license
 #
@@ -140,4 +138,6 @@ find_playing_song (){
 
 echo "${SONGFILE}"
 #echo "${SONGSTRING}"
-puddletag "${SONGFILE}"
+
+# have command line switch for tag edit and audio edit and bpmhelper and gainhelper and coverart helper
+#puddletag "${SONGFILE}"
