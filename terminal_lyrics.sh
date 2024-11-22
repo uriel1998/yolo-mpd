@@ -9,7 +9,7 @@
 #  Licensed under the MIT license
 #
 ##############################################################################
- 
+LYRICTMP=$(mktemp) 
 SONGSTRING=""
 SONGFILE=""
 SONGDIR=""
@@ -145,12 +145,22 @@ find_playing_song (){
     # TEST HERE; if it's the same, then bounce back
     if [[ "${SONGSTRING}" != "${bob:2}" ]]; then 
         SAME_SONG=0
-        LYRICSFILE="${SONGFILE%.*}.txt"
+        LYRICSFILE="${SONGFILE%.*}.lrc"
         if [ "$LYRICSFILE" == "" ] || [ ! -f "${LYRICSFILE}" ];then
-            # You *COULD* check inside the music file, I guess...
-            # use the default cover in the script directory
-            # So need a default lyrics file.... SCRIPT_DIR
-            LYRICSFILE="${SCRIPT_DIR}/default_lyrics.md"
+            LYRICSFILE="${SONGFILE%.*}.txt"
+            if [ "$LYRICSFILE" == "" ] || [ ! -f "${LYRICSFILE}" ];then
+                # You *COULD* check inside the music file, I guess...
+                # use the default cover in the script directory
+                # So need a default lyrics file.... SCRIPT_DIR
+                LYRICSFILE="${SCRIPT_DIR}/default_lyrics.md"
+            fi
+        else
+            # lrc can have timestamps
+            if [ ! -f "${SONGFILE%.*}.txt" ];then
+                sed 's/\[.*\]//g' "${LYRICSFILE}" > "${SONGFILE%.*}.txt"
+            fi
+            sed 's/\[.*\]//g' "${LYRICSFILE}" > "${LYRICTMP}"
+            LYRICSFILE="${LYRICTMP}"
         fi
     else
         SAME_SONG=1
@@ -183,3 +193,4 @@ while true; do
     main
     sleep 2
 done
+rm "${LYRICTMP}"
