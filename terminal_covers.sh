@@ -46,7 +46,7 @@ fi
 
 function round_rectangles (){
 
-    
+
   convert "${1}" \
       -format 'roundrectangle 1,1 %[fx:w+4],%[fx:h+4] 15,15' \
       -write info:tmp.mvg \
@@ -58,6 +58,9 @@ function round_rectangles (){
          -fill none -stroke black -strokewidth 3 -draw @tmp.mvg \
          -fill none -stroke white -strokewidth 1 -draw @tmp.mvg \) \
       -compose Over -composite               "${2}"
+      if [ -f "${PWD}/tmp.mvg" ];then
+      	rm "${PWD}/tmp.mvg"
+      fi
 }
 
 
