@@ -145,11 +145,11 @@ find_playing_song (){
     # TEST HERE; if it's the same, then bounce back
     if [[ "${SONGSTRING}" != "${bob:2}" ]]; then 
         SAME_SONG=0
+        # You *COULD* check inside the music file, I guess...
         LYRICSFILE="${SONGFILE%.*}.lrc"
         if [ "$LYRICSFILE" == "" ] || [ ! -f "${LYRICSFILE}" ];then
             LYRICSFILE="${SONGFILE%.*}.txt"
             if [ "$LYRICSFILE" == "" ] || [ ! -f "${LYRICSFILE}" ];then
-                # You *COULD* check inside the music file, I guess...
                 # use the default cover in the script directory
                 # So need a default lyrics file.... SCRIPT_DIR
                 LYRICSFILE="${SCRIPT_DIR}/default_lyrics.md"
@@ -173,10 +173,21 @@ main () {
     find_playing_song
 
     if [[ $SAME_SONG -eq 0 ]];then
+        
+        height=$(tput cols)
+        usable_height=$(( height - 20 ))
+        
         # global var LYRICSFILE should be set now
         echo "# ${SONGSTRING}" > "${YADSHOW_CACHE}/nowplaying.lyrics.md"
         echo " " >> "${YADSHOW_CACHE}/nowplaying.lyrics.md"
-        cat "${LYRICSFILE}" >> "${YADSHOW_CACHE}/nowplaying.lyrics.md"
+        lyric_len=$(cat "${LYRICSFILE}" | wc -l )
+        if [ $lyric_len -gt $usable_height ];then
+            cat "${LYRICSFILE}" | sed 's/$/  /' | head --lines=${usable_height} >> "${YADSHOW_CACHE}/nowplaying.lyrics.md"
+            echo "   "
+            echo "### lyrics continue" >> "${YADSHOW_CACHE}/nowplaying.lyrics.md"
+        else
+            cat "${LYRICSFILE}" | sed 's/$/  /' >> "${YADSHOW_CACHE}/nowplaying.lyrics.md"
+        fi
         clear
         (rich "${YADSHOW_CACHE}/nowplaying.lyrics.md" &)
         ##############################################################################

@@ -318,7 +318,6 @@ function show_compare_images () {
     
 
 function directory_check () {
-
     find "${MusicDir}" -name '*.mp3' -printf '"%h"\n' | sort -u | xargs -I {} realpath {} > "${dirlist}"
     CURRENTENTRY="0"
     ENTRIES=$(cat "${dirlist}" | wc -l)
@@ -342,7 +341,6 @@ function directory_check () {
         # Get all embedded front covers
         #rm -rf "${TMPDIR}/*.jpeg" 2>/dev/null 1>/dev/null     
         rm -rf "${TMPDIR}/*.jpg" 2>/dev/null 1>/dev/null
-
         FOUND_COVERS=0
         EmbeddedChecksums=""
         while read -r line; do
@@ -377,6 +375,10 @@ function directory_check () {
         if [ -f "${SONGDIR}/cover.jpg" ]; then
             FOUND_COVERS=$((FOUND_COVERS + 1))
             cp "${SONGDIR}/cover.jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
+        fi
+        if [ -f "${SONGDIR}/cover (1).jpg" ]; then
+            FOUND_COVERS=$((FOUND_COVERS + 1))
+            cp "${SONGDIR}/cover (1).jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
         fi
         if [ -f "${SONGDIR}/folder.jpg" ]; then
             FOUND_COVERS=$((FOUND_COVERS + 1))
@@ -490,10 +492,10 @@ function directory_check () {
                         if [ $SAFETY -eq 0 ];then 
                             filetime=$(stat -c '%y' "${line}")
                             if [ $LOUD -eq 1 ];then                                
-                                eyeD3 --quiet --add-image="${canon_cover}":FRONT_COVER:Cover "${line}"
+                                eyeD3 --to-v2.3 --quiet --add-image="${canon_cover}":FRONT_COVER:Cover "${line}"
                             else
                                 if [ $REMOVE -eq 1 ];then eyeD3 --quiet --remove-all-images "${line}" 2>/dev/null 1>/dev/null ; fi
-                                eyeD3 --quiet --add-image="${canon_cover}":FRONT_COVER:Cover "${line}" 
+                                eyeD3 --to-v2.3 --quiet --add-image="${canon_cover}":FRONT_COVER:Cover "${line}" 
                             fi
                             touch -d "${filetime}" "${line}"
                         else
@@ -501,6 +503,9 @@ function directory_check () {
                             echo "### SAFETY: eyeD3 --quiet --add-image=${canon_cover}:FRONT_COVER ${line}"
                         fi
                     fi
+                    if [ -f "${SONGDIR}/cover (1).jpg" ]; then
+                        rm "${SONGDIR}/cover (1).jpg" 
+                    fi                    
                 done < "${songlist}"
                 rm "${songlist}" 2>/dev/null 1>/dev/null
                 rm -rf "${TMPDIR}/*.jpeg" 2>/dev/null 1>/dev/null
@@ -513,6 +518,7 @@ function directory_check () {
         rm -rf "${TMPDIR}/*.jpeg" 2>/dev/null 1>/dev/null
         rm -rf "${TMPDIR}/*.jpg" 2>/dev/null 1>/dev/null
         find "$TMPDIR/" -iname "*FOUND_COVER*"  -exec rm -f {} \;  
+        
     done < "${dirlist}"
     rm "${dirlist}"
 }
