@@ -179,10 +179,11 @@ One or more of the following:
 
 # mpdcontrol.sh
 
-Select whether you want to choose a playlist, or by album, artist, or genre. Clears playlist (IF YOU USE THE SWITCH -c), adds what you chose, starts playing. The SSH version is for exactly that, especially if you don't have `pick` on that machine.
+Select whether you want to choose a playlist, or by album, artist, or genre. Clears playlist (IF YOU USE THE SWITCH -c), adds what you chose, starts playing. Optionally, if `fzf` is installed on the system, it will seamlessly substitute that program in, with the option to select multiple entries at once (use TAB). 
 
-Optionally, if `fzf` is installed on the system, it will seamlessly substitute that program in, with the option to select multiple entries at once (use TAB). 
+You can also use the command line argument `nowalbum` or `nowartist` to add the currently playing album or all of the album artist's tracks to the queue (put `-c` first to have it clear the queue first).
 
+The SSH version is for exactly that, especially if you don't have `pick` on that machine.
 The `mpdcontrol_add.sh` file does *not* clear the queue so that you can add to the existing playlist.
 
 Dependencies: 

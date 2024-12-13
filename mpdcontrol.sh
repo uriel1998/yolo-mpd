@@ -17,7 +17,40 @@ ADDMODE="1"
     
     if [ "$1" == "-c" ];then
         ADDMODE="0"
+        shift
     fi
+    
+now_album(){
+    
+    artist=$(mpc --host "$MPD_HOST" current --format "%artist%")
+    album=$(mpc --host "$MPD_HOST" current --format "%album%")
+
+
+    if [[ -z "$artist" || -z "$album" ]]; then
+        echo "No song is currently playing."
+    else
+        clearmode
+        mpc --host "$MPD_HOST" search album "$album" | mpc add
+        mpc --host "$MPD_HOST" play
+    fi
+}
+    
+now_artist(){
+    
+    album_artist=$(mpc --host "$MPD_HOST" current --format "%albumartist%")
+    if [[ -z "$album_artist" ]]; then
+        echo "No song is currently playing or no album artist information available."
+    else
+        clearmode
+        mpc --host "$MPD_HOST" search albumartist "$album_artist" | mpc add
+        mpc --host "$MPD_HOST" play
+    fi
+
+}    
+    
+    
+    
+    
 
 clearmode (){
     
@@ -26,10 +59,14 @@ clearmode (){
         fi
 }
     
+    
+    
+interactive(){  
+
     echo -e "\E[0;32m(\E[0;37mc\E[0;32m)ustom, \E[0;32m(\E[0;37mg\E[0;32m)enre, (\E[0;37mA\E[0;32m)lbumartist, (\E[0;37ma\E[0;32m)rtist, a(\E[0;37ml\E[0;32m)bum, (\E[0;37ms\E[0;32m)ong, (\E[0;37mp\E[0;32m)laylist, or (\E[0;37mq\E[0;32m)uit? "; tput sgr0
     read -r CHOICE
 
-    
+
     case "$CHOICE" in
         "c") 
             if [ -f "$(which fzf)" ];then 
@@ -149,3 +186,19 @@ clearmode (){
         "h") echo "Use -c to clear before adding.  Export your MPD_HOST as PASS@HOST; localhost is default";;
         *)            echo "You have chosen poorly. Run without commandline input.";;
     esac
+}
+
+
+case "${1}" in 
+    nowal*|now_al*)
+                now_album
+                ;;
+    nowar*|now_ar*)
+                now_artist
+                ;;
+    -c) ADDMODE="0"
+        shift
+        ;;
+    *) interactive "${@}"
+        ;;
+esac
