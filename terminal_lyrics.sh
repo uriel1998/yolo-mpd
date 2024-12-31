@@ -113,9 +113,7 @@ find_playing_song (){
                 SONGFILE=$(echo "${bob}" | grep ":url:" | cut -d '/' -f 3-)
             else
                 #is internet stream
-                echo "internet"
                 SONGFILE=$(echo "${bob}" | grep ":url:" | cut -d ' ' -f 2)
-                echo "#${album}#"
                 if [ "${album}" == "" ];then
                     
                     album=$(echo "${bob}" | grep ":url:" | cut -d ' ' -f 3)

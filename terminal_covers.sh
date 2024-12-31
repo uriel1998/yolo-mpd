@@ -59,7 +59,7 @@ function round_rectangles (){
          -fill none -stroke white -strokewidth 1 -draw @tmp.mvg \) \
       -compose Over -composite               "${2}"
       if [ -f "${PWD}/tmp.mvg" ];then
-      	rm "${PWD}/tmp.mvg"
+        rm "${PWD}/tmp.mvg"
       fi
 }
 
@@ -178,14 +178,17 @@ find_playing_song (){
             artist=$(echo "${bob}" | grep ":artist:" | cut -d ' ' -f 2-)
             title=$(echo "${bob}" | grep ":title:" | cut -d ' ' -f 2-)
             coverurl=$(echo "${bob}" | grep ":artUrl:" | cut -d '/' -f 3- )
+            if [ -f "${coverurl}" ];then 
+                COVERFILE="${coverurl}"
+            fi
             IF_URL==$(echo "${bob}" | grep ":url:" | grep -c "http")
             if [ "$IF_URL" == "0" ];then
                 SONGFILE=$(echo "${bob}" | grep ":url:" | cut -d '/' -f 3-)
             else
                 #is internet stream
-                echo "internet"
+                #echo "internet"
                 SONGFILE=$(echo "${bob}" | grep ":url:" | cut -d ' ' -f 2)
-                echo "#${album}#"
+                #echo "#${album}#"
                 if [ "${album}" == "" ];then
                     
                     album=$(echo "${bob}" | grep ":url:" | cut -d ' ' -f 3)
