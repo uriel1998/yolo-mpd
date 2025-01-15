@@ -128,7 +128,10 @@ find_playing_song (){
             artist=$(echo "${bob}" | grep ":artist:" | cut -d ' ' -f 2-)
             title=$(echo "${bob}" | grep ":title:" | cut -d ' ' -f 2-)
             coverurl=$(echo "${bob}" | grep ":artUrl:" | cut -d '/' -f 3- )
-            IF_URL==$(echo "${bob}" | grep ":url:" | grep -c "http")
+            if [ -f "${coverurl}" ];then 
+                COVERFILE="${coverurl}"
+            fi
+            IF_URL=$(echo "${bob}" | grep ":url:" | grep -c "http")
             if [ "$IF_URL" == "0" ];then
                 SONGFILE=$(echo "${bob}" | grep ":url:" | cut -d '/' -f 3-)
             else
@@ -153,7 +156,10 @@ find_playing_song (){
             artist=$(echo "${bob}" | grep ":artist:" | cut -d ' ' -f 2-)
             title=$(echo "${bob}" | grep ":title:" | cut -d ' ' -f 2-)
             coverurl=$(echo "${bob}" | grep ":artUrl:" | cut -d '/' -f 3- )
-            IF_URL==$(echo "${bob}" | grep ":url:" | grep -c "http")
+            if [ -f "${coverurl}" ];then 
+                COVERFILE="${coverurl}"
+            fi            
+            IF_URL=$(echo "${bob}" | grep ":url:" | grep -c "http")
             if [ "$IF_URL" == "0" ];then
                 SONGFILE=$(echo "${bob}" | grep ":url:" | cut -d '/' -f 3-)
             else
@@ -181,7 +187,7 @@ find_playing_song (){
             if [ -f "${coverurl}" ];then 
                 COVERFILE="${coverurl}"
             fi
-            IF_URL==$(echo "${bob}" | grep ":url:" | grep -c "http")
+            IF_URL=$(echo "${bob}" | grep ":url:" | grep -c "http")
             if [ "$IF_URL" == "0" ];then
                 SONGFILE=$(echo "${bob}" | grep ":url:" | cut -d '/' -f 3-)
             else
