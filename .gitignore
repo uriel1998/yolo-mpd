@@ -1,6 +1,7 @@
 # reference, old shit
 1_reference/
 tmp.mvg
+maubot_vars.env
 
 # macOS Junks
 .DS_Store

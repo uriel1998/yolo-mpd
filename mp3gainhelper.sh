@@ -31,7 +31,7 @@ IFS=$'\n'
     dirlist=$(find "${startdir}" -name '*.mp3' -printf '"%h"\n' | xargs -I {} realpath {} | sort -u)
     watchcount=0
     while read -r line; do  
-        if [ $watchcount -gt 3 ];then
+        if [ $watchcount -gt 6 ];then
             wait
             watchcount=0
         fi

@@ -79,7 +79,9 @@ interactive(){
             while IFS= read -r genre; do
                 bob=$(mpc --host "$MPD_HOST" -f "%title% ‡ %artist%" search genre "$genre")
                 selection=$(echo "$selection $bob")
-            done <<< "$result"        
+            done <<< "$result"    
+            
+# for year in {1990..1999}; do     mpc -f "%album% - %artist% - %genre%" find genre "Rock" date "$year"; done  | sort | uniq                
         ### TODO
         ### THIS IS IT - WE CAN ACTUALLY PUT IN A SHORTCUT MATCH FOR OTHER FIELDS HERE TOO!
         ### EG g:${genre} so if you want to limit what you're seeing, you can type g:Rock

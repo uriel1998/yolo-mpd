@@ -195,6 +195,6 @@ function round_rectangles (){
 ##############################################################################
 
 
-yad --window-icon=musique --always-print-result --on-top --skip-taskbar --image-on-top --borders=5 --title "$SONGSTRING" --text-align=center --image "$YADSHOW_CACHE"/nowplaying.album.png --timeout=10 --no-buttons
+yad --window-icon=musique --always-print-result --on-top --skip-taskbar --image-on-top --borders=5 --title "$SONGSTRING" --text-align=center --image "$YADSHOW_CACHE"/nowplaying.album.png --timeout=5 --no-buttons
 
 read
