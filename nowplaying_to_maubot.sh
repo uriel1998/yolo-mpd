@@ -17,30 +17,41 @@ function loud() {
 }
 
 
-SONGSTRING=$(mpc current --format "%artist% - %album% - %title%")
-SONGFILE=$(mpc current --format %file%)
-SONGFILE=$(dirname "${SONGFILE}")
-echo "${SONGFILE}"
+while true
+do
+    SONGSTRING_PRIOR="${SONGSTRING}"
+    SONGSTRING=$(mpc current --format "%artist% : %title% (%album%) ")
+    if [ "${SONGSTRING}" != "${SONGSTRING_PRIOR}" ];then
+        SONGFILE=$(mpc current --format %file%)
+        SONGFILE=$(dirname "${SONGFILE}")
+        SONGFILE=$(urlencode "${SONGFILE}")
+        COVERSTRING="${COVERSERVER}/covers/${SONGFILE}/cover.jpg"
+        imagecheck=$(wget -q --spider "${COVERSTRING}"; echo $?)
+        if [ "${imagecheck}" -ne 0 ];then
+            loud "[warn] Stored image no longer available."
+            COVERSTRING=""
+        fi
+        FULLIMAGE=$(printf "![cover](%s)  " "${COVERSTRING}")
+        echo "${FULLIMAGE}"
+        loud "Posting to maubot"
+        # Build the JSON safely with jq
+        json_payload=$(jq -n \
+          --arg title "${SONGSTRING}" \
+          --arg image "${FULLIMAGE}" \
+          '{
+            title: $title,
+            image: $image
+          }')
 
-COVERSTRING="${COVERSERVER}/covers/${SONGFILE}/cover.jpg"                   
-loud "${SONGSTRING}"
-loud "${COVERSTRING}"
-imagecheck=$(wget -q --spider "${COVERSTRING}"; echo $?)
-if [ "${imagecheck}" -ne 0 ];then
-    loud "[warn] Stored image no longer available."
-    COVERSTRING=""
-fi
-loud "Posting to maubot"
-loud "${MATRIXSERVER},${MAUBOT_WEBHOOK_INSTANCE},${SONGSTRING},${COVERSTRING}"
+        # Then send it with curl
+        curl -X POST -H "Content-Type: application/json" -u abc:123 "${MATRIXSERVER}/_matrix/maubot/plugin/${MAUBOT_WEBHOOK_INSTANCE}/send" -d "$json_payload"
+    fi
+    mpc idle player
+    
+done
 
-
-curl -X POST -H "Content-Type: application/json" -u abc:123 ${MATRIXSERVER}/_matrix/maubot/plugin/${MAUBOT_WEBHOOK_INSTANCE}/send -d '
-{
-    "title": "${SONGSTRING}",
-    "image": [ "${COVERSTRING}" ]
-}'
-
-
+ 
+# Okay, so this works, sorta, except HTML switches to notify, so I can't see the image. :/  
 
 # 
 # this might work so I don't have to parse it separately outside of the thing???
