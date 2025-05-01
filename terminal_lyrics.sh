@@ -139,12 +139,12 @@ find_playing_song (){
         if [ "$MPD_HOST" == "" ];then
             export MPD_HOST=$(cat ${HOME}/.bashrc | grep MPD_HOST | awk -F '=' '{print $2}')
         fi
-        status=$(mpc | grep -c -e "\[")
+        status=$(mpc --host "$MPD_HOST" | grep -c -e "\[")
         if [ $status -lt 1 ];then
             echo "Not playing or paused"            
         else
-            SONGFILE="${MPD_MUSIC_BASE}"/$(mpc current --format %file%)
-            SONGSTRING=$(mpc current --format "%artist% - %album% - %title%")
+            SONGFILE="${MPD_MUSIC_BASE}"/$(mpc --host "$MPD_HOST" current --format %file%)
+            SONGSTRING=$(mpc --host "$MPD_HOST" current --format "%artist% - %album% - %title%")
         fi
     fi
 
