@@ -20,7 +20,7 @@ function loud() {
 while true
 do
     SONGSTRING_PRIOR="${SONGSTRING}"
-    SONGSTRING=$(mpc current --format "%artist% : “%title%” from *%album%*")
+    SONGSTRING=$(mpc --host "$MPD_HOST" current --format "%artist% : “%title%” from *%album%*")
     if [ "${SONGSTRING}" != "${SONGSTRING_PRIOR}" ];then
         loud "Posting to maubot"
 #        Build the JSON safely with jq
@@ -34,7 +34,7 @@ do
         curl -X POST -H "Content-Type: application/json" -u abc:123 "${MATRIXSERVER}/_matrix/maubot/plugin/${MAUBOT_WEBHOOK_INSTANCE}/send" -d "$json_payload"
     fi
     loud "Posted to maubot, waiting"    
-    mpc idle player
+    mpc --host "$MPD_HOST" idle player
     
 done
  
