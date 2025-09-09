@@ -133,11 +133,7 @@ find_playing_song (){
 
 }
 
-
-    find_playing_song
+find_playing_song
 
 echo "${SONGFILE}"
-#echo "${SONGSTRING}"
-
-# have command line switch for tag edit and audio edit and bpmhelper and gainhelper and coverart helper
-#puddletag "${SONGFILE}"
+ 

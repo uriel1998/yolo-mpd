@@ -17,12 +17,14 @@ fi
 
 # Loop through all files in $PLAYLISTS
 for file in "$PLAYLISTS"/*.m3u; do
-  filename=$(basename "$file")
-  target="$FORMPD/$filename"
-
-  # If source is newer than target (or target doesn't exist)
-  if [[ "$file" -nt "$target" ]]; then
-    echo "Updating: $filename"
-    sed '/^#/d; s|^/home/steven/Music/||' "$file" > "$target"
-  fi
+    filename=$(basename "$file")
+    target="$FORMPD/$filename"
+    if [ "$file" != *Radio* ];then
+  
+        # If source is newer than target (or target doesn't exist)
+        if [[ "$file" -nt "$target" ]]; then
+            echo "Updating: $filename"
+            sed '/^#/d; s|^/home/steven/Music/||' "$file" > "$target"
+        fi
+    fi
 done
