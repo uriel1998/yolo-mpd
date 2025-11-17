@@ -115,7 +115,7 @@ find_playing_song (){
     IF_URL=0
     SONGFILE=""
     SONGSTRING=""
-    if [ -f $(which audtool) ];then 
+    if [[ -f $(which audtool) ]];then 
 		aud_status=$(audtool playback-status)
 	else
 		aud_status=""
