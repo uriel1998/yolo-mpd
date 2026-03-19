@@ -52,10 +52,14 @@ now_artist(){
     
     
 
-clearmode (){
-    
+clearmode (){  
         if [ "$ADDMODE" = "0" ];then
             mpc --host "$MPD_HOST" clear -q
+            # This doesn't work with the shuffle implementation and the way I add songs here.
+            #SongStem=$(mpc --host "${MPD_HOST}" -port "${MPD_PORT}" find genre "Bumper" | shuf -n1 )
+			#if [ "$SongStem" != "" ];then
+				#`mpc --host $MPD_HOST --port $MPD_PORT add "${SongStem}"`
+			#fi
         fi
 }
     
