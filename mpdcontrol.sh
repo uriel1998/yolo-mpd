@@ -55,6 +55,13 @@ now_artist(){
 clearmode (){  
         if [ "$ADDMODE" = "0" ];then
             mpc --host "$MPD_HOST" clear -q
+			# if there is anything in genre "Bumper" then choose one randomly and add it.
+			SongStem=$(mpc --host "${MPD_HOST}" find genre "Bumper" | shuf -n1 )
+			if [ "$SongStem" != "" ];then
+				# We will also use $SongFile as a continuing check
+				SongFile="$MPDBASE/$SongStem"
+				`mpc --host $MPD_HOST add "${SongStem}"`
+			fi            
             # This doesn't work with the shuffle implementation and the way I add songs here.
             #SongStem=$(mpc --host "${MPD_HOST}" -port "${MPD_PORT}" find genre "Bumper" | shuf -n1 )
 			#if [ "$SongStem" != "" ];then
