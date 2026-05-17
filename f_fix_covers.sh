@@ -301,9 +301,9 @@ function search_for_cover () {
                     if [ -f "${wget_bin}" ];then
                         if [ -f "${timeout_bin}" ];then
                             if [ $LOUD -eq 1 ];then
-                                "${timeout_bin}" 15 --kill-after=30 "${wget_bin}" --timeout=15 --quiet "${API_URL}" -O "$TMPDIR/MusicBrains_DL.jpg"
+                                "${timeout_bin}" --kill-after=30 15 "${wget_bin}" --timeout=15 --quiet "${API_URL}" -O "$TMPDIR/MusicBrains_DL.jpg"
                             else
-                                "${timeout_bin}" 15 --kill-after=30 "${wget_bin}" --timeout=15 --quiet "${API_URL}" -O "$TMPDIR/MusicBrains_DL.jpg" 2>/dev/null 1>/dev/null
+                                "${timeout_bin}" --kill-after=30 15 "${wget_bin}" --timeout=15 --quiet "${API_URL}" -O "$TMPDIR/MusicBrains_DL.jpg" 2>/dev/null 1>/dev/null
                             fi
                         elif [ $LOUD -eq 1 ];then
                             "${wget_bin}" --timeout=15 --quiet "${API_URL}" -O "$TMPDIR/MusicBrains_DL.jpg"
@@ -315,7 +315,7 @@ function search_for_cover () {
                     fi
 
                     if [ ! -s "$TMPDIR/MusicBrains_DL.jpg" ];then
-                        rm "$TMPDIR/MusicBrains_DL.jpg"
+                        rm -f "$TMPDIR/MusicBrains_DL.jpg"
                     else
                         SEARCH_FOUND_COVERS=$((SEARCH_FOUND_COVERS+1))
                         mv "$TMPDIR/MusicBrains_DL.jpg" "${TMPDIR}/${SEARCH_FOUND_COVERS}SEARCH_FOUND_COVER.jpeg"
@@ -438,7 +438,17 @@ function show_compare_images () {
     # as a warning to myself if I try to pull this out and forget. :)
 
     #Which of the images should be canonical?
-    buttonstring=""
+    yad_args=()
+    yad_args+=("--window-icon=musique")
+    yad_args+=("--always-print-result")
+    yad_args+=("--on-top")
+    yad_args+=("--skip-taskbar")
+    yad_args+=("--image-on-top")
+    yad_args+=("--borders=5")
+    yad_args+=("--title" "Choose for ${SHOW_SONGSTRING}")
+    yad_args+=("--text-align=center")
+    yad_args+=("--image" "${TMPDIR}/out_montage.jpg")
+    yad_args+=("--button=None:99")
     i=1
     while read -r line; do
         tempstring=$(get_cover_label "${line}")
@@ -451,16 +461,14 @@ function show_compare_images () {
         else
             printf '%s\n' "${line}" >> "${show_list}"
         fi
-        buttonstring="${buttonstring} --button=\"${tempstring}:${i}\""
+        yad_args+=("--button=${tempstring}:${i}")
         printf '%sϑ%s\n' "${line}" "${i}" >> "${test_list}"
         i=$((i+1))
     done < "${compare_list}"
 
     # set up layout?
     feh --preload --montage --thumb-width 200 --thumb-height 200 --stretch --filelist "${show_list}" --output-only "${TMPDIR}/out_montage.jpg"
-    evalstring=$(printf "yad --window-icon=musique --always-print-result --on-top --skip-taskbar --image-on-top --borders=5 --title \"Choose for %s\" --text-align=center --image \"%s\" --button=\"None:99\" %s" "${SHOW_SONGSTRING}" "${TMPDIR}/out_montage.jpg" "${buttonstring}")
-
-    eval "${evalstring}"
+    yad "${yad_args[@]}"
     result="$?"
     if [ ${result} -eq 99 ];then
         echo ""
