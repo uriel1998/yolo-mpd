@@ -40,7 +40,83 @@ ALERT=0     # play audible ping when user input needed
 CHECKALL=0  # even if they all match, search & check anyway.
 SONGDIR=""
 
-export SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+export SCRIPT_DIR
+
+function clear_work_covers() {
+    find "${TMPDIR}" -maxdepth 1 -type f \
+        \( -iname 'FRONT_COVER*' -o -iname 'OTHER*' -o -iname 'cover.tmp' -o -iname 'Glyrc_DL.*' -o -iname 'Sacad_DL.*' -o -iname 'MusicBrains_DL.*' -o -iname 'square_cover_*' -o -iname '*.label' \) \
+        -delete 2>/dev/null
+}
+
+function clear_found_covers() {
+    find "${TMPDIR}" -maxdepth 1 -type f -name '*FOUND_COVER.jpeg' -delete 2>/dev/null
+    find "${TMPDIR}" -maxdepth 1 -type f -name '*FOUND_COVER.jpeg.label' -delete 2>/dev/null
+}
+
+function list_found_covers() {
+    find "${TMPDIR}" -name '*FOUND_COVER.jpeg' -print
+}
+
+function list_search_found_covers() {
+    find "${TMPDIR}" -name '*SEARCH_FOUND_COVER.jpeg' -print
+}
+
+function set_cover_label() {
+    local cover_file="$1"
+    local cover_label="$2"
+    printf '%s\n' "${cover_label}" > "${cover_file}.label"
+}
+
+function get_cover_label() {
+    local cover_file="$1"
+    if [ -f "${cover_file}.label" ]; then
+        head -n 1 "${cover_file}.label"
+    fi
+}
+
+function maybe_create_square_cover() {
+    local source_file="$1"
+    local source_name=""
+    local source_label=""
+    local width=""
+    local height=""
+    local square_size=""
+    local square_file=""
+
+    if [ ! -f "${source_file}" ]; then
+        return 1
+    fi
+
+    width=$(identify -format '%w' "${source_file}" 2>/dev/null)
+    height=$(identify -format '%h' "${source_file}" 2>/dev/null)
+
+    if [ -z "${width}" ] || [ -z "${height}" ] || [ "${width}" -eq "${height}" ]; then
+        return 1
+    fi
+
+    if [ "${width}" -lt "${height}" ]; then
+        square_size="${width}"
+    else
+        square_size="${height}"
+    fi
+
+    source_name=$(basename "${source_file}")
+    source_name="${source_name%.*}"
+    square_file=$(mktemp "${TMPDIR}/square_cover_${source_name}_${square_size}x${square_size}_XXXXXX.jpeg")
+    if convert "${source_file}" -gravity center -crop "${square_size}x${square_size}+0+0" +repage "${square_file}" 2>/dev/null; then
+        source_label=$(get_cover_label "${source_file}")
+        if [ -z "${source_label}" ]; then
+            source_label="Unknown source"
+        fi
+        set_cover_label "${square_file}" "${source_label} square crop ${square_size}x${square_size}"
+        echo "${square_file}"
+        return 0
+    fi
+
+    rm -f "${square_file}"
+    return 1
+}
 
 function loud() {
     if [ $LOUD -eq 1 ];then
@@ -70,6 +146,7 @@ function cleanup {
     find "$TMPDIR/" -iname "ILLUSTRATION*"  -exec rm -f {} \;
     #find "$TMPDIR/" -iname "*FOUND_COVER*"  -exec rm -f {} \;
     rm "${TMPDIR}/out_montage.jpg" 2>/dev/null 1>/dev/null
+    clear_work_covers
 }
 
 
@@ -143,8 +220,8 @@ function extract_cover () {
 function search_for_cover () {
 
 
-    rm -rf "${TMPDIR}/*FOUND_COVER.jpeg"
-    FOUND_COVERS=0
+    find "${TMPDIR}" -name '*SEARCH_FOUND_COVER.jpeg' -delete 2>/dev/null
+    SEARCH_FOUND_COVERS=0
     searchsonglist=$(mktemp)
     ARTIST=""
     ALBUM=""
@@ -153,7 +230,7 @@ function search_for_cover () {
     if [ -d "${1}" ];then
         find "${1}" -name '*.mp3' -printf '%p\n' > "${searchsonglist}"
         while read -r line; do
-            tempstring=$(basename ${line})
+            tempstring=$(basename "${line}")
         done < "${searchsonglist}"
     else
         echo "${1}" > "${searchsonglist}"
@@ -165,8 +242,8 @@ function search_for_cover () {
             songdata=$(ffprobe "$SONGFILE" 2>&1)
             # big long grep string to avoid all the possible frakups I found, lol
             tARTIST=$(echo "$songdata" | grep "album_artist" | grep -v "mp3," | head -1 | awk -F ': ' '{for(i=2;i<=NF;++i)print $i}')
-            if [ "$ARTIST" == "" ];then
-                ARTIST=$(echo "$songdata" | grep "artist" | grep -v "mp3," | head -1 | awk -F ': ' '{for(i=2;i<=NF;++i)print $i}')
+            if [ -z "$tARTIST" ];then
+                tARTIST=$(echo "$songdata" | grep "artist" | grep -v "mp3," | head -1 | awk -F ': ' '{for(i=2;i<=NF;++i)print $i}')
             fi
             tALBUM=$(echo "$songdata" | grep "album" | head -1 | awk -F ': ' '{for(i=2;i<=NF;++i)print $i}' | tr '\n' ' ')
 
@@ -179,30 +256,36 @@ function search_for_cover () {
                 # Attempt to get coverart from CoverArt Archive
                 ##########################################################################
                 MBID=""
-                IMG_URL=""
                 API_URL=""
 
                 # MusicBrainz ID
                 MBID=$(echo "$songdata" | grep "MusicBrainz Album Id:" | awk -F ': ' '{print $2}')
                 if [ "$MBID" != '' ] && [ "$MBID" != 'null' ];then
                     API_URL="https://coverartarchive.org/release/$MBID/front"
-                    IMG_URL=$(curl "$API_URL" | awk -F ': ' '{print $2}')
                     wget_bin=$(which wget)
-                    if [ -f "${timeout_bin}" ];then
-                        wget_bin=$(echo "${timeout_bin} 15 --kill-after=30 ${wget_bin}")
-                    fi
-                    if [ $LOUD -eq 1 ];then
-
-                        "${wget_bin}" --timeout=15 --quiet "${IMG_URL}" -O "$TMPDIR/MusicBrains_DL.jpg"
+                    timeout_bin=$(which timeout)
+                    if [ -f "${wget_bin}" ];then
+                        if [ -f "${timeout_bin}" ];then
+                            if [ $LOUD -eq 1 ];then
+                                "${timeout_bin}" 15 --kill-after=30 "${wget_bin}" --timeout=15 --quiet "${API_URL}" -O "$TMPDIR/MusicBrains_DL.jpg"
+                            else
+                                "${timeout_bin}" 15 --kill-after=30 "${wget_bin}" --timeout=15 --quiet "${API_URL}" -O "$TMPDIR/MusicBrains_DL.jpg" 2>/dev/null 1>/dev/null
+                            fi
+                        elif [ $LOUD -eq 1 ];then
+                            "${wget_bin}" --timeout=15 --quiet "${API_URL}" -O "$TMPDIR/MusicBrains_DL.jpg"
+                        else
+                            "${wget_bin}" --timeout=15 --quiet "${API_URL}" -O "$TMPDIR/MusicBrains_DL.jpg" 2>/dev/null 1>/dev/null
+                        fi
                     else
-                        "${wget_bin}" --timeout=15 --quiet "${IMG_URL}" -O "$TMPDIR/MusicBrains_DL.jpg" 2>/dev/null 1>/dev/null
+                        loud "wget not available; skipping CoverArt Archive download"
                     fi
 
                     if [ ! -s "$TMPDIR/MusicBrains_DL.jpg" ];then
                         rm "$TMPDIR/MusicBrains_DL.jpg"
                     else
-                        FOUND_COVERS=$((FOUND_COVERS+1))
-                        mv "$TMPDIR/MusicBrains_DL.jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
+                        SEARCH_FOUND_COVERS=$((SEARCH_FOUND_COVERS+1))
+                        mv "$TMPDIR/MusicBrains_DL.jpg" "${TMPDIR}/${SEARCH_FOUND_COVERS}SEARCH_FOUND_COVER.jpeg"
+                        set_cover_label "${TMPDIR}/${SEARCH_FOUND_COVERS}SEARCH_FOUND_COVER.jpeg" "CoverArtArchive"
                     fi
                 fi
 
@@ -220,9 +303,10 @@ function search_for_cover () {
                     fi
 
                     if [ -f "$TMPDIR/cover.tmp" ];then
-                        FOUND_COVERS=$((FOUND_COVERS+1))
+                        SEARCH_FOUND_COVERS=$((SEARCH_FOUND_COVERS+1))
                         convert "$TMPDIR/cover.tmp" "$TMPDIR/Glyrc_DL.jpg"
-                        mv "$TMPDIR/Glyrc_DL.jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
+                        mv "$TMPDIR/Glyrc_DL.jpg" "${TMPDIR}/${SEARCH_FOUND_COVERS}SEARCH_FOUND_COVER.jpeg"
+                        set_cover_label "${TMPDIR}/${SEARCH_FOUND_COVERS}SEARCH_FOUND_COVER.jpeg" "glyrc"
                         rm "$TMPDIR/cover.tmp" 2>/dev/null 1>/dev/null
                     fi
                 fi
@@ -234,34 +318,41 @@ function search_for_cover () {
                 if [ -f "${sacad_bin}" ];then
                     timeout_bin=$(which timeout)  # sacad doesn't have a timeout...
                     if [ -f "${timeout_bin}" ];then
-                        sacad_bin=$(echo "${timeout_bin} 15 ${sacad_bin}")
-                    fi
-                    exec_string=$(printf "%s \"%s\" \"%s\" 512 %s/FRONT_COVER.jpeg" "${sacad_bin}" "${ARTIST}" "${ALBUM}" "${TMPDIR}")
-                    if [ $LOUD -eq 1 ];then
-                        eval "$exec_string"
+                        if [ $LOUD -eq 1 ];then
+                            "${timeout_bin}" 15 "${sacad_bin}" "${ARTIST}" "${ALBUM}" 512 "${TMPDIR}/FRONT_COVER.jpeg"
+                        else
+                            "${timeout_bin}" 15 "${sacad_bin}" "${ARTIST}" "${ALBUM}" 512 "${TMPDIR}/FRONT_COVER.jpeg" 2>/dev/null 1>/dev/null
+                        fi
                     else
-                        eval "$exec_string" 2>/dev/null 1>/dev/null
+                        if [ $LOUD -eq 1 ];then
+                            "${sacad_bin}" "${ARTIST}" "${ALBUM}" 512 "${TMPDIR}/FRONT_COVER.jpeg"
+                        else
+                            "${sacad_bin}" "${ARTIST}" "${ALBUM}" 512 "${TMPDIR}/FRONT_COVER.jpeg" 2>/dev/null 1>/dev/null
+                        fi
                     fi
                     if [ -f "$TMPDIR/FRONT_COVER.jpeg" ];then
-                        FOUND_COVERS=$((FOUND_COVERS+1))
+                        SEARCH_FOUND_COVERS=$((SEARCH_FOUND_COVERS+1))
                         convert "$TMPDIR/FRONT_COVER.jpeg" "$TMPDIR/Sacad_DL.jpg"
-                        mv "$TMPDIR/Sacad_DL.jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
+                        mv "$TMPDIR/Sacad_DL.jpg" "${TMPDIR}/${SEARCH_FOUND_COVERS}SEARCH_FOUND_COVER.jpeg"
+                        set_cover_label "${TMPDIR}/${SEARCH_FOUND_COVERS}SEARCH_FOUND_COVER.jpeg" "sacad"
                         rm "$TMPDIR/FRONT_COVER.jpeg" 2>/dev/null 1>/dev/null
                     fi
                 fi
             fi
         fi
     done < "${searchsonglist}"
+    rm -f "${searchsonglist}"
 
     #Dirty horrible global variable hack
-    SHOW_SONGSTRING=$(echo "${ALBUM} -- ${ARTIST}")
+    SHOW_SONGSTRING="${ALBUM} -- ${ARTIST}"
 
-    if [ $AUTOEMBED -eq 1 ] && [ $FOUND_COVERS -eq 1 ];then
+    if [ $AUTOEMBED -eq 1 ] && [ $SEARCH_FOUND_COVERS -eq 1 ];then
         #there's only one....
-        canon_cover=$(find "${TMPDIR}" -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g')
+        canon_cover=$(list_search_found_covers | head -n 1)
     else
-        if [ $FOUND_COVERS -gt 0 ];then
-            canon_cover=$(show_compare_images "$(find ${TMPDIR} -name '*FOUND_COVER.jpeg' -print0 | xargs -0 -I {} echo {} | sed 's@\ @\\ @g')")
+        if [ $SEARCH_FOUND_COVERS -gt 0 ];then
+            mapfile -t found_covers < <(list_search_found_covers)
+            canon_cover=$(show_compare_images "${found_covers[@]}")
         else
             canon_cover=""
         fi
@@ -282,13 +373,13 @@ function show_compare_images () {
             # if the ping soundfile doesn't exist, skip further checks.
             ALERT=0
         else
-            if [ -f $(which mpg123) ];then
+            if command -v mpg123 >/dev/null 2>&1; then
                 mpg123 -q "${SCRIPT_DIR}/444918__matrixxx__ping.mp3" 2>/dev/null 1>/dev/null &
             else
-                if [ -f $(which mplayer) ];then
+                if command -v mplayer >/dev/null 2>&1; then
                     mplayer "${SCRIPT_DIR}/444918__matrixxx__ping.mp3" 2>/dev/null 1>/dev/null &
                 else
-                    if [ -f $(which mpv) ];then
+                    if command -v mpv >/dev/null 2>&1; then
                         mpv "${SCRIPT_DIR}/444918__matrixxx__ping.mp3" 2>/dev/null 1>/dev/null &
                     fi
                 fi
@@ -300,7 +391,14 @@ function show_compare_images () {
 
     show_list=$(mktemp)
     test_list=$(mktemp)
-    echo "${@}" > "${show_list}"
+    for line in "$@"; do
+        [ -n "${line}" ] || continue
+        printf '%s\n' "${line}" >> "${show_list}"
+        square_variant=$(maybe_create_square_cover "${line}")
+        if [ -n "${square_variant}" ] && [ -f "${square_variant}" ]; then
+            printf '%s\n' "${square_variant}" >> "${show_list}"
+        fi
+    done
     # Note -- this was set at the beginning of the script. Leaving this here
     # as a warning to myself if I try to pull this out and forget. :)
 
@@ -312,22 +410,25 @@ function show_compare_images () {
     buttonstring=""
     i=1
     while read -r line; do
-        tempstring=$(basename ${line})
-        buttonstring=$(echo ${buttonstring} --button="${tempstring}:${i}")
+        tempstring=$(get_cover_label "${line}")
+        if [ -z "${tempstring}" ]; then
+            tempstring=$(basename "${line}")
+        fi
+        buttonstring="${buttonstring} --button=\"${tempstring}:${i}\""
         echo "${line}ϑ${i}" >> "${test_list}"
         i=$((i+1))
     done < "${show_list}"
     evalstring=$(printf "yad --window-icon=musique --always-print-result --on-top --skip-taskbar --image-on-top --borders=5 --title \"Choose for %s\" --text-align=center --image \"%s\" --button=\"None:99\" %s" "${SHOW_SONGSTRING}" "${TMPDIR}/out_montage.jpg" "${buttonstring}")
 
-    eval ${evalstring}
+    eval "${evalstring}"
     result="$?"
     if [ ${result} -eq 99 ];then
         echo ""
     else
-        result=$(echo "ϑ${result}")
-        grep -e "${result}" "${test_list}" | awk -F 'ϑ' '{print $1}'
+        result="ϑ${result}"
         # return the filename of the chosen cover.
-        canon_cover=$(realpath $(grep -e "${result}" "${test_list}" | awk -F 'ϑ' '{print $1}'))
+        canon_cover=$(grep -e "${result}" "${test_list}" | awk -F 'ϑ' '{print $1}' | head -n 1)
+        canon_cover=$(realpath "${canon_cover}")
         echo "${canon_cover}"
     fi
     #clean up after ourselves, don't delete the found ones yet tho.
@@ -338,9 +439,9 @@ function show_compare_images () {
 
 
 function directory_check () {
-    find "${MusicDir}" -name '*.mp3' -printf '"%h"\n' | sort -u | xargs -I {} realpath {} > "${dirlist}"
+    find "${1}" -name '*.mp3' -printf '%h\n' | sort -u > "${dirlist}"
     CURRENTENTRY="0"
-    ENTRIES=$(cat "${dirlist}" | wc -l)
+    ENTRIES=$(wc -l < "${dirlist}")
     while read -r line; do
         cleanup
         SONGFILE=""
@@ -377,7 +478,7 @@ function directory_check () {
             ALBUM=$(trim "$ALBUM")
             # big long grep string to avoid all the possible frakups I found, lol
             # Improved detection to catch more cover types
-            CA_Embedded=$(echo "$songdata" | grep -i "attached.*pic\|cover\|artwork\|front_cover\|album.*art" | wc -l)
+            CA_Embedded=$(echo "$songdata" | grep -ic "attached.*pic\|cover\|artwork\|front_cover\|album.*art")
             if [ "${CA_Embedded}" -gt 0 ];then
                 # Extract cover and verify success
                 if extract_cover "${SONGFILE}" "${SONGDIR}"; then
@@ -386,10 +487,11 @@ function directory_check () {
                         if [[ ${EmbeddedChecksums} == *${tmpchecksum}* ]]; then
                             loud "Duplicate cover found."
                         else
-                            EmbeddedChecksums=$(echo "${EmbeddedChecksums}${tmpchecksum}")
+                            EmbeddedChecksums="${EmbeddedChecksums}${tmpchecksum}"
                             FOUND_COVERS=$((FOUND_COVERS + 1))
                             loud "Found ${FOUND_COVERS} covers so far!"
                             mv "${TMPDIR}/FRONT_COVER.jpeg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
+                            set_cover_label "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg" "Tags ${FOUND_COVERS}"
                         fi
                     else
                         loud "### Warning: Extraction reported success but no file found for ${SONGFILE}"
@@ -402,17 +504,20 @@ function directory_check () {
         if [ -f "${SONGDIR}/cover.jpg" ]; then
             FOUND_COVERS=$((FOUND_COVERS + 1))
             cp "${SONGDIR}/cover.jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
+            set_cover_label "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg" "cover.jpg"
         fi
         if [ -f "${SONGDIR}/cover (1).jpg" ]; then
             FOUND_COVERS=$((FOUND_COVERS + 1))
             cp "${SONGDIR}/cover (1).jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
+            set_cover_label "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg" "cover (1).jpg"
         fi
         if [ -f "${SONGDIR}/folder.jpg" ]; then
             FOUND_COVERS=$((FOUND_COVERS + 1))
             cp "${SONGDIR}/folder.jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
+            set_cover_label "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg" "folder.jpg"
         fi
         #Dirty horrible global variable hack
-        SHOW_SONGSTRING=$(echo "${ALBUM} -- ${ARTIST}")
+        SHOW_SONGSTRING="${ALBUM} -- ${ARTIST}"
         canon_cover=""
 
         if [ $FOUND_COVERS -eq 1 ];then
@@ -449,25 +554,24 @@ function directory_check () {
 
         # comparing the hash of found covers; if all are equal, then...
         if [ $FOUND_COVERS -gt 1 ] && [ ! -s "${canon_cover}" ];then
-            find "${TMPDIR}" -name '*FOUND_COVER.jpeg' -printf '%p\n' | xargs -I {} realpath {} > "${testlist}"
-            testsha=$(shasum $(cat ${testlist}|shuf) | awk '{print $1}')
-            testsha=$(echo "${testsha}" | head -n 1 )
+            list_found_covers > "${testlist}"
+            testsha=""
+            while read -r line; do
+                testsha=$(shasum "${line}" | awk '{print $1}')
+                break
+            done < "${testlist}"
 
             # If compareall is on, it will automatically kick in the comparison
             COMPAREFAIL=$CHECKALL
             while read -r line; do
-                testingsha=$(shasum ${line} | awk '{print $1}')
-                testingsha=$(echo "${testingsha}" | head -n 1)
+                testingsha=$(shasum "${line}" | awk '{print $1}')
                 if [[ "${testingsha}" != "${testsha}" ]];then
                     COMPAREFAIL=$((COMPAREFAIL+1))
                 fi
             done < "${testlist}"
             if [ $COMPAREFAIL -gt 0 ];then
-                canon_cover=$(show_compare_images "$(find ${TMPDIR} -name '*FOUND_COVER.jpeg'| xargs -I {} echo {} | sed 's@\ @\\ @g')")
-                # failing to recognize the file here.  Not sure why.
-                # it's returning two lines. WHY???
-                # the head line below fixes it, anyway...
-                canon_cover=$(echo "${canon_cover}" | head -n 1)
+                mapfile -t found_covers < <(list_found_covers)
+                canon_cover=$(show_compare_images "${found_covers[@]}")
                 if [ ! -s "${canon_cover}" ]; then
                     canon_cover=$(search_for_cover "${SONGDIR}")
                     canon_cover=$(echo "${canon_cover}" | head -n 1)
@@ -496,13 +600,13 @@ function directory_check () {
             COMPAREFAIL=0
 
             if [ $AUTOEMBED -eq 1 ];then
-                find "${SONGDIR}" -name '*.mp3' -printf '"%p"\n' | xargs -I {} realpath {} > "${songlist}"
+                find "${SONGDIR}" -name '*.mp3' -printf '%p\n' > "${songlist}"
                 while read -r line; do
                     # if comparefail was not tripped, the only possible way the cover is
                     # different is if it's missing, to avoid extra writes.
                     if [ $COMPAREFAIL -eq 0 ];then
                         songdata=$(ffprobe "${line}" 2>&1)
-                        CA_Embedded=$(echo "$songdata" | grep -i "attached.*pic\|cover\|artwork\|front_cover\|album.*art" | wc -l)
+                        CA_Embedded=$(echo "$songdata" | grep -ic "attached.*pic\|cover\|artwork\|front_cover\|album.*art")
                     else
                         CA_Embedded=0
                     fi
@@ -520,7 +624,7 @@ function directory_check () {
                         CA_Embedded=0
                     fi
 
-                    if [ $CA_Embedded -eq 0 ];then
+                    if [ "${CA_Embedded}" -eq 0 ];then
                         # either comparefail failed or there is no embedded cover.
                         if [ $SAFETY -eq 0 ];then
                             filetime=$(stat -c '%y' "${line}")
@@ -541,16 +645,13 @@ function directory_check () {
                     fi
                 done < "${songlist}"
                 rm "${songlist}" 2>/dev/null 1>/dev/null
-                rm -rf "${TMPDIR}/*.jpeg" 2>/dev/null 1>/dev/null
-                rm -rf "${TMPDIR}/*.jpg" 2>/dev/null 1>/dev/null
+                clear_work_covers
             fi
             rm "${songlist}" 2>/dev/null 1>/dev/null
-            rm -rf "${TMPDIR}/*.jpeg" 2>/dev/null 1>/dev/null
-            rm -rf "${TMPDIR}/*.jpg" 2>/dev/null 1>/dev/null
+            clear_work_covers
         fi
-        rm -rf "${TMPDIR}/*.jpeg" 2>/dev/null 1>/dev/null
-        rm -rf "${TMPDIR}/*.jpg" 2>/dev/null 1>/dev/null
-        find "$TMPDIR/" -iname "*FOUND_COVER*"  -exec rm -f {} \;
+        clear_work_covers
+        clear_found_covers
 
     done < "${dirlist}"
     rm "${dirlist}"
@@ -561,7 +662,7 @@ function directory_check () {
         case $option in
         -h|--help) display_help
             exit
-            shift ;;
+            ;;
         -a|--autoembed) AUTOEMBED=1
             shift ;;
         -p|--ping) ALERT=1
