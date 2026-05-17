@@ -45,7 +45,7 @@ export SCRIPT_DIR
 
 function clear_work_covers() {
     find "${TMPDIR}" -maxdepth 1 -type f \
-        \( -iname 'FRONT_COVER*' -o -iname 'OTHER*' -o -iname 'cover.tmp' -o -iname 'Glyrc_DL.*' -o -iname 'Sacad_DL.*' -o -iname 'MusicBrains_DL.*' -o -iname 'square_cover_*' -o -iname '*.label' \) \
+        \( -iname 'FRONT_COVER*' -o -iname 'OTHER*' -o -iname 'cover.tmp' -o -iname 'Glyrc_DL.*' -o -iname 'Sacad_DL.*' -o -iname 'MusicBrains_DL.*' -o -iname 'square_cover_*' -o -iname 'preview_*' -o -iname '*.label' \) \
         -delete 2>/dev/null
 }
 
@@ -109,12 +109,46 @@ function maybe_create_square_cover() {
         if [ -z "${source_label}" ]; then
             source_label="Unknown source"
         fi
-        set_cover_label "${square_file}" "${source_label} square crop ${square_size}x${square_size}"
+        set_cover_label "${square_file}" "${source_label} square crop"
         echo "${square_file}"
         return 0
     fi
 
     rm -f "${square_file}"
+    return 1
+}
+
+function create_labeled_preview() {
+    local source_file="$1"
+    local preview_label="$2"
+    local preview_file=""
+    local width=""
+    local height=""
+    local overlay_text=""
+
+    width=$(identify -format '%w' "${source_file}" 2>/dev/null)
+    height=$(identify -format '%h' "${source_file}" 2>/dev/null)
+    if [ -n "${width}" ] && [ -n "${height}" ]; then
+        overlay_text="${preview_label}\n${width}x${height}"
+    else
+        overlay_text="${preview_label}"
+    fi
+
+    preview_file=$(mktemp "${TMPDIR}/preview_XXXXXX.jpg")
+    if convert "${source_file}" \
+        -resize '400x400>' \
+        -fill white \
+        -gravity south \
+        -font DejaVu-Sans \
+        -pointsize 18 \
+        -undercolor '#111111cc' \
+        -annotate +0+8 "${overlay_text}" \
+        "${preview_file}" 2>/dev/null; then
+        echo "${preview_file}"
+        return 0
+    fi
+
+    rm -f "${preview_file}"
     return 1
 }
 
@@ -391,22 +425,19 @@ function show_compare_images () {
 
     show_list=$(mktemp)
     test_list=$(mktemp)
+    compare_list=$(mktemp)
     for line in "$@"; do
         [ -n "${line}" ] || continue
-        printf '%s\n' "${line}" >> "${show_list}"
+        printf '%s\n' "${line}" >> "${compare_list}"
         square_variant=$(maybe_create_square_cover "${line}")
         if [ -n "${square_variant}" ] && [ -f "${square_variant}" ]; then
-            printf '%s\n' "${square_variant}" >> "${show_list}"
+            printf '%s\n' "${square_variant}" >> "${compare_list}"
         fi
     done
     # Note -- this was set at the beginning of the script. Leaving this here
     # as a warning to myself if I try to pull this out and forget. :)
 
-    # set up layout?
-    feh --preload --fullindex --thumb-width 200 --thumb-height 200 --stretch --draw-filename --filelist "${show_list}" --output-only "${TMPDIR}/out_montage.jpg"
-
     #Which of the images should be canonical?
-
     buttonstring=""
     i=1
     while read -r line; do
@@ -414,10 +445,19 @@ function show_compare_images () {
         if [ -z "${tempstring}" ]; then
             tempstring=$(basename "${line}")
         fi
+        preview_file=$(create_labeled_preview "${line}" "${tempstring}")
+        if [ -n "${preview_file}" ] && [ -f "${preview_file}" ]; then
+            printf '%s\n' "${preview_file}" >> "${show_list}"
+        else
+            printf '%s\n' "${line}" >> "${show_list}"
+        fi
         buttonstring="${buttonstring} --button=\"${tempstring}:${i}\""
-        echo "${line}ϑ${i}" >> "${test_list}"
+        printf '%sϑ%s\n' "${line}" "${i}" >> "${test_list}"
         i=$((i+1))
-    done < "${show_list}"
+    done < "${compare_list}"
+
+    # set up layout?
+    feh --preload --montage --thumb-width 200 --thumb-height 200 --stretch --filelist "${show_list}" --output-only "${TMPDIR}/out_montage.jpg"
     evalstring=$(printf "yad --window-icon=musique --always-print-result --on-top --skip-taskbar --image-on-top --borders=5 --title \"Choose for %s\" --text-align=center --image \"%s\" --button=\"None:99\" %s" "${SHOW_SONGSTRING}" "${TMPDIR}/out_montage.jpg" "${buttonstring}")
 
     eval "${evalstring}"
@@ -434,6 +474,7 @@ function show_compare_images () {
     #clean up after ourselves, don't delete the found ones yet tho.
     rm "${show_list}"
     rm "${test_list}"
+    rm "${compare_list}"
 
 }
 
