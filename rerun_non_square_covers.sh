@@ -75,7 +75,8 @@ while IFS= read -r -d '' cover_file; do
             printf 'Would run: %q %q %q %q %q %q %q %q\n' \
                 "${FIX_COVERS}" "-l" "-c" "-e" "-r" "-a" "-d" "${cover_dir}"
         else
-            "${FIX_COVERS}" -l -c -r -e -a -d "${cover_dir}"
+        	echo "## running on ${cover_dir}"
+            "${FIX_COVERS}" -c -l -r -e -a -d "${cover_dir}"
         fi
     fi
 done < <(find "${ROOT_DIR}" -type f -name 'cover.jpg' -print0)

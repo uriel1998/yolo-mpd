@@ -38,6 +38,7 @@ REMOVE=0    # Remove images
 LOUD=0      # verbose
 ALERT=0     # play audible ping when user input needed
 CHECKALL=0  # even if they all match, search & check anyway.
+EVERYTHING=0 # search online for every album
 SONGDIR=""
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
@@ -52,6 +53,11 @@ function clear_work_covers() {
 function clear_found_covers() {
     find "${TMPDIR}" -maxdepth 1 -type f -name '*FOUND_COVER.jpeg' -delete 2>/dev/null
     find "${TMPDIR}" -maxdepth 1 -type f -name '*FOUND_COVER.jpeg.label' -delete 2>/dev/null
+}
+
+function clear_search_found_covers() {
+    find "${TMPDIR}" -maxdepth 1 -type f -name '*SEARCH_FOUND_COVER.jpeg' -delete 2>/dev/null
+    find "${TMPDIR}" -maxdepth 1 -type f -name '*SEARCH_FOUND_COVER.jpeg.label' -delete 2>/dev/null
 }
 
 function list_found_covers() {
@@ -116,6 +122,25 @@ function maybe_create_square_cover() {
 
     rm -f "${square_file}"
     return 1
+}
+
+function has_square_variant_candidate() {
+    local source_file="$1"
+    local width=""
+    local height=""
+
+    if [ ! -f "${source_file}" ]; then
+        return 1
+    fi
+
+    width=$(identify -format '%w' "${source_file}" 2>/dev/null)
+    height=$(identify -format '%h' "${source_file}" 2>/dev/null)
+
+    if [ -z "${width}" ] || [ -z "${height}" ]; then
+        return 1
+    fi
+
+    [ "${width}" -ne "${height}" ]
 }
 
 function create_labeled_preview() {
@@ -254,7 +279,8 @@ function extract_cover () {
 function search_for_cover () {
 
 
-    find "${TMPDIR}" -name '*SEARCH_FOUND_COVER.jpeg' -delete 2>/dev/null
+    clear_search_found_covers
+    rm -f "${TMPDIR}/MusicBrains_DL.jpg" "${TMPDIR}/Glyrc_DL.jpg" "${TMPDIR}/Sacad_DL.jpg" "${TMPDIR}/cover.tmp" 2>/dev/null
     SEARCH_FOUND_COVERS=0
     searchsonglist=$(mktemp)
     ARTIST=""
@@ -380,7 +406,7 @@ function search_for_cover () {
     #Dirty horrible global variable hack
     SHOW_SONGSTRING="${ALBUM} -- ${ARTIST}"
 
-    if [ $AUTOEMBED -eq 1 ] && [ $SEARCH_FOUND_COVERS -eq 1 ];then
+    if [ $AUTOEMBED -eq 1 ] && [ $CHECKALL -eq 0 ] && [ $SEARCH_FOUND_COVERS -eq 1 ];then
         #there's only one....
         canon_cover=$(list_search_found_covers | head -n 1)
     else
@@ -512,6 +538,7 @@ function directory_check () {
         #rm -rf "${TMPDIR}/*.jpeg" 2>/dev/null 1>/dev/null
         rm -rf "${TMPDIR}/*.jpg" 2>/dev/null 1>/dev/null
         FOUND_COVERS=0
+        NON_SQUARE_FOUND=0
         EmbeddedChecksums=""
         while read -r line; do
             loud "Examining ${line}"
@@ -541,6 +568,9 @@ function directory_check () {
                             loud "Found ${FOUND_COVERS} covers so far!"
                             mv "${TMPDIR}/FRONT_COVER.jpeg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
                             set_cover_label "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg" "Tags ${FOUND_COVERS}"
+                            if has_square_variant_candidate "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"; then
+                                NON_SQUARE_FOUND=1
+                            fi
                         fi
                     else
                         loud "### Warning: Extraction reported success but no file found for ${SONGFILE}"
@@ -554,23 +584,32 @@ function directory_check () {
             FOUND_COVERS=$((FOUND_COVERS + 1))
             cp "${SONGDIR}/cover.jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
             set_cover_label "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg" "cover.jpg"
+            if has_square_variant_candidate "${SONGDIR}/cover.jpg"; then
+                NON_SQUARE_FOUND=1
+            fi
         fi
         if [ -f "${SONGDIR}/cover (1).jpg" ]; then
             FOUND_COVERS=$((FOUND_COVERS + 1))
             cp "${SONGDIR}/cover (1).jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
             set_cover_label "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg" "cover (1).jpg"
+            if has_square_variant_candidate "${SONGDIR}/cover (1).jpg"; then
+                NON_SQUARE_FOUND=1
+            fi
         fi
         if [ -f "${SONGDIR}/folder.jpg" ]; then
             FOUND_COVERS=$((FOUND_COVERS + 1))
             cp "${SONGDIR}/folder.jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
             set_cover_label "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg" "folder.jpg"
+            if has_square_variant_candidate "${SONGDIR}/folder.jpg"; then
+                NON_SQUARE_FOUND=1
+            fi
         fi
         #Dirty horrible global variable hack
         SHOW_SONGSTRING="${ALBUM} -- ${ARTIST}"
         canon_cover=""
 
         if [ $FOUND_COVERS -eq 1 ];then
-            if [ $CHECKALL -eq 0 ];then
+            if [ $CHECKALL -eq 0 ] && [ $NON_SQUARE_FOUND -eq 0 ];then
                 if [ $AUTOEMBED -eq 1 ];then
                     canon_cover="${TMPDIR}/1FOUND_COVER.jpeg"
                 else
@@ -612,6 +651,9 @@ function directory_check () {
 
             # If compareall is on, it will automatically kick in the comparison
             COMPAREFAIL=$CHECKALL
+            if [ $NON_SQUARE_FOUND -eq 1 ]; then
+                COMPAREFAIL=$((COMPAREFAIL+1))
+            fi
             while read -r line; do
                 testingsha=$(shasum "${line}" | awk '{print $1}')
                 if [[ "${testingsha}" != "${testsha}" ]];then

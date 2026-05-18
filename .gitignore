@@ -3,6 +3,10 @@
 tmp.mvg
 maubot_vars.env
 
+# local agent tooling state
+.agents/
+.codex/
+
 # macOS Junks
 .DS_Store
 
