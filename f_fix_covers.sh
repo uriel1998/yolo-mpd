@@ -353,15 +353,15 @@ function search_for_cover () {
                     timeout_bin=$(which timeout)  # sacad doesn't have a timeout...
                     if [ -f "${timeout_bin}" ];then
                         if [ $LOUD -eq 1 ];then
-                            "${timeout_bin}" 15 "${sacad_bin}" "${ARTIST}" "${ALBUM}" 512 "${TMPDIR}/FRONT_COVER.jpeg"
+                            XDG_CACHE_HOME="${TMPDIR}" "${timeout_bin}" 15 "${sacad_bin}" "${ARTIST}" "${ALBUM}" 512 "${TMPDIR}/FRONT_COVER.jpeg"
                         else
-                            "${timeout_bin}" 15 "${sacad_bin}" "${ARTIST}" "${ALBUM}" 512 "${TMPDIR}/FRONT_COVER.jpeg" 2>/dev/null 1>/dev/null
+                            XDG_CACHE_HOME="${TMPDIR}" "${timeout_bin}" 15 "${sacad_bin}" "${ARTIST}" "${ALBUM}" 512 "${TMPDIR}/FRONT_COVER.jpeg" 2>/dev/null 1>/dev/null
                         fi
                     else
                         if [ $LOUD -eq 1 ];then
-                            "${sacad_bin}" "${ARTIST}" "${ALBUM}" 512 "${TMPDIR}/FRONT_COVER.jpeg"
+                            XDG_CACHE_HOME="${TMPDIR}" "${sacad_bin}" "${ARTIST}" "${ALBUM}" 512 "${TMPDIR}/FRONT_COVER.jpeg"
                         else
-                            "${sacad_bin}" "${ARTIST}" "${ALBUM}" 512 "${TMPDIR}/FRONT_COVER.jpeg" 2>/dev/null 1>/dev/null
+                            XDG_CACHE_HOME="${TMPDIR}" "${sacad_bin}" "${ARTIST}" "${ALBUM}" 512 "${TMPDIR}/FRONT_COVER.jpeg" 2>/dev/null 1>/dev/null
                         fi
                     fi
                     if [ -f "$TMPDIR/FRONT_COVER.jpeg" ];then

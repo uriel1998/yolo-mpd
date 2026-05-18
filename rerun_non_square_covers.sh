@@ -72,10 +72,10 @@ while IFS= read -r -d '' cover_file; do
         MATCHED_DIRS=$((MATCHED_DIRS + 1))
         echo "Non-square cover found: ${cover_file} (${width}x${height})"
         if [ "${DRY_RUN}" -eq 1 ]; then
-            printf 'Would run: %q %q %q %q %q %q %q\n' \
-                "${FIX_COVERS}" "-l" "-c" "-r" "-a" "-d" "${cover_dir}"
+            printf 'Would run: %q %q %q %q %q %q %q %q\n' \
+                "${FIX_COVERS}" "-l" "-c" "-e" "-r" "-a" "-d" "${cover_dir}"
         else
-            "${FIX_COVERS}" -l -c -r -a -d "${cover_dir}"
+            "${FIX_COVERS}" -l -c -r -e -a -d "${cover_dir}"
         fi
     fi
 done < <(find "${ROOT_DIR}" -type f -name 'cover.jpg' -print0)
