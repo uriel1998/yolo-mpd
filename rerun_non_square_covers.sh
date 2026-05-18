@@ -2,14 +2,46 @@
 
 set -u
 
+usage() {
+    echo "Usage: $0 [--dry-run] [ROOT_DIR]"
+}
+
+DRY_RUN=0
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -n|--dry-run)
+            DRY_RUN=1
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        --)
+            shift
+            break
+            ;;
+        -*)
+            echo "Unknown option: $1"
+            usage
+            exit 1
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
 if [ $# -ne 1 ]; then
-    echo "Usage: $0 [ROOT_DIR]"
+    usage
     exit 1
 fi
 
 ROOT_DIR="$1"
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 FIX_COVERS="${SCRIPT_DIR}/f_fix_covers.sh"
+MATCHED_DIRS=0
 
 if [ ! -d "${ROOT_DIR}" ]; then
     echo "Not a directory: ${ROOT_DIR}"
@@ -26,7 +58,6 @@ if ! command -v identify >/dev/null 2>&1; then
     exit 1
 fi
 
-find "${ROOT_DIR}" -type f -name 'cover.jpg' -print0 |
 while IFS= read -r -d '' cover_file; do
     width=$(identify -format '%w' "${cover_file}" 2>/dev/null)
     height=$(identify -format '%h' "${cover_file}" 2>/dev/null)
@@ -38,7 +69,15 @@ while IFS= read -r -d '' cover_file; do
 
     if [ "${width}" -ne "${height}" ]; then
         cover_dir=$(dirname "${cover_file}")
+        MATCHED_DIRS=$((MATCHED_DIRS + 1))
         echo "Non-square cover found: ${cover_file} (${width}x${height})"
-        "${FIX_COVERS}" -l -c -e -r -a -d "${cover_dir}"
+        if [ "${DRY_RUN}" -eq 1 ]; then
+            printf 'Would run: %q %q %q %q %q %q %q\n' \
+                "${FIX_COVERS}" "-l" "-c" "-r" "-a" "-d" "${cover_dir}"
+        else
+            "${FIX_COVERS}" -l -c -r -a -d "${cover_dir}"
+        fi
     fi
-done
+done < <(find "${ROOT_DIR}" -type f -name 'cover.jpg' -print0)
+
+echo "Matched directories: ${MATCHED_DIRS}"
