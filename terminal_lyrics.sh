@@ -38,6 +38,33 @@ if [ ! -d "${YADSHOW_CACHE}" ];then
     mkdir -p "${YADSHOW_CACHE}"
 fi
 
+cleanup () {
+    rm -f "${LYRICTMP}"
+}
+
+ensure_plaintext_lyrics () {
+    local timed_lyrics_file="$1"
+    local plaintext_lyrics_file="$2"
+    local lyrics_dir
+    local dir_mtime
+
+    [ -f "${timed_lyrics_file}" ] || return 1
+    [ -f "${plaintext_lyrics_file}" ] && return 0
+
+    lyrics_dir=$(dirname "${plaintext_lyrics_file}")
+    dir_mtime=$(stat -c %y "${lyrics_dir}" 2>/dev/null)
+
+    sed 's/\[.*\]//g' "${timed_lyrics_file}" > "${plaintext_lyrics_file}"
+
+    # Creating the sidecar .txt updates the directory mtime; restore it so
+    # rendering lyrics does not look like a music library edit.
+    if [ -n "${dir_mtime}" ];then
+        touch -d "${dir_mtime}" "${lyrics_dir}"
+    fi
+}
+
+trap cleanup EXIT
+
  
 find_playing_song (){
     # Checking to see if currently playing/paused, otherwise exiting.
@@ -168,7 +195,7 @@ find_playing_song (){
         else
             # lrc can have timestamps
             if [ ! -f "${SONGFILE%.*}.txt" ];then
-                sed 's/\[.*\]//g' "${LYRICSFILE}" > "${SONGFILE%.*}.txt"
+                ensure_plaintext_lyrics "${LYRICSFILE}" "${SONGFILE%.*}.txt"
             fi
             sed 's/\[.*\]//g' "${LYRICSFILE}" > "${LYRICTMP}"
             LYRICSFILE="${LYRICTMP}"
@@ -208,11 +235,10 @@ main () {
 }
 
 # reset songinfo for startup
-echo "" > "${YADSHOW_CACHE}/songinfo"
+: > "${YADSHOW_CACHE}/songinfo"
 
 
 while true; do
     main
     sleep 2
 done
-rm "${LYRICTMP}"

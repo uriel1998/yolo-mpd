@@ -39,6 +39,6 @@ while IFS= read -r -d '' cover_file; do
     if [ "${width}" -ne "${height}" ]; then
         cover_dir=$(dirname "${cover_file}")
         echo "Non-square cover found: ${cover_file} (${width}x${height})"
-        "${FIX_COVERS}" -l -e -r -a -d "${cover_dir}"
+        "${FIX_COVERS}" -l -c -e -r -a -d "${cover_dir}"
     fi
 done
