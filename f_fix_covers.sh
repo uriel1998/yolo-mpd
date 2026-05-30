@@ -720,10 +720,10 @@ function directory_check () {
                         if [ $SAFETY -eq 0 ];then
                             filetime=$(stat -c '%y' "${line}")
                             if [ $LOUD -eq 1 ];then
-                                eyeD3 --to-v2.3 --quiet --add-image="${canon_cover}":FRONT_COVER:Cover "${line}"
+                                eyeD3 --quiet --add-image="${canon_cover}":FRONT_COVER:Cover "${line}"
                             else
                                 if [ $REMOVE -eq 1 ];then eyeD3 --quiet --remove-all-images "${line}" 2>/dev/null 1>/dev/null ; fi
-                                eyeD3 --to-v2.3 --quiet --add-image="${canon_cover}":FRONT_COVER:Cover "${line}"
+                                eyeD3 --quiet --add-image="${canon_cover}":FRONT_COVER:Cover "${line}"
                             fi
                             touch -d "${filetime}" "${line}"
                         else
