@@ -128,6 +128,8 @@ if ! [[ $max_jobs =~ ^[1-9][0-9]*$ ]]; then
     max_jobs=8
 fi
 
+max_jobs=$((max_jobs-4))
+
 process_dir() {
     local dir=$1
     local -a files stamp_files
