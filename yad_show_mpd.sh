@@ -17,6 +17,7 @@ COVERFILE=""
 MPD_MUSIC_BASE="${HOME}/Music"
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 DEFAULT_COVER="${SCRIPT_DIR}/defaultcover.jpg"
+TMP_MVG=""
 
 # checking if MPD_HOST is set or exists in .bashrc
 # if neither is set, will just go with defaults (which will fail if 
@@ -44,20 +45,21 @@ fi
 # https://legacy.imagemagick.org/Usage/thumbnails/#rounded_borde
 
 function round_rectangles (){
-    
- 
-    
+    TMP_MVG=$(mktemp "${YADSHOW_CACHE}/tmp.XXXXXX.mvg") || return 1
+
   convert "${1}" \
       -format 'roundrectangle 1,1 %[fx:w+4],%[fx:h+4] 15,15' \
-      -write info:tmp.mvg \
+      -write "info:${TMP_MVG}" \
       -alpha set -bordercolor none -border 3 \
       \( +clone -alpha transparent -background none \
-         -fill white -stroke none -strokewidth 0 -draw @tmp.mvg \) \
+         -fill white -stroke none -strokewidth 0 -draw @"${TMP_MVG}" \) \
       -compose DstIn -composite \
       \( +clone -alpha transparent -background none \
-         -fill none -stroke black -strokewidth 3 -draw @tmp.mvg \
-         -fill none -stroke white -strokewidth 1 -draw @tmp.mvg \) \
+         -fill none -stroke black -strokewidth 3 -draw @"${TMP_MVG}" \
+         -fill none -stroke white -strokewidth 1 -draw @"${TMP_MVG}" \) \
       -compose Over -composite               "${2}"
+  rm -f -- "${TMP_MVG}"
+  TMP_MVG=""
 }
 
 
@@ -65,7 +67,13 @@ function round_rectangles (){
 # Checking to see if currently playing/paused, otherwise exiting.
 # checks local players like audacity first, since it's always a local player, as opposed to MPD
     IF_URL=0
-    aud_status=$(audtool playback-status)
+    coverurl=""
+    COVERFILE=""
+    if command -v audtool >/dev/null 2>&1; then
+        aud_status=$(audtool playback-status)
+    else
+        aud_status=""
+    fi
     if [ "${aud_status}" == "playing" ];then
         SONGSTRING=$(audtool current-song)
         SONGFILE=$(audtool current-song-filename)
@@ -78,7 +86,7 @@ function round_rectangles (){
             artist=$(echo "${bob}" | grep ":artist:" | cut -d ' ' -f 2-)
             title=$(echo "${bob}" | grep ":title:" | cut -d ' ' -f 2-)
             coverurl=$(echo "${bob}" | grep ":artUrl:" | cut -d '/' -f 3- )
-            IF_URL==$(echo "${bob}" | grep ":url:" | grep -c "http")
+            IF_URL=$(echo "${bob}" | grep ":url:" | grep -c "http")
             if [ "$IF_URL" == "0" ];then
                 SONGFILE=$(echo "${bob}" | grep ":url:" | cut -d '/' -f 3-)
             else
@@ -103,7 +111,7 @@ function round_rectangles (){
             artist=$(echo "${bob}" | grep ":artist:" | cut -d ' ' -f 2-)
             title=$(echo "${bob}" | grep ":title:" | cut -d ' ' -f 2-)
             coverurl=$(echo "${bob}" | grep ":artUrl:" | cut -d '/' -f 3- )
-            IF_URL==$(echo "${bob}" | grep ":url:" | grep -c "http")
+            IF_URL=$(echo "${bob}" | grep ":url:" | grep -c "http")
             if [ "$IF_URL" == "0" ];then
                 SONGFILE=$(echo "${bob}" | grep ":url:" | cut -d '/' -f 3-)
             else
@@ -128,7 +136,7 @@ function round_rectangles (){
             artist=$(echo "${bob}" | grep ":artist:" | cut -d ' ' -f 2-)
             title=$(echo "${bob}" | grep ":title:" | cut -d ' ' -f 2-)
             coverurl=$(echo "${bob}" | grep ":artUrl:" | cut -d '/' -f 3- )
-            IF_URL==$(echo "${bob}" | grep ":url:" | grep -c "http")
+            IF_URL=$(echo "${bob}" | grep ":url:" | grep -c "http")
             if [ "$IF_URL" == "0" ];then
                 SONGFILE=$(echo "${bob}" | grep ":url:" | cut -d '/' -f 3-)
             else
@@ -171,15 +179,15 @@ function round_rectangles (){
     fi
 
     if [ "$COVERFILE" == "" ];then
-        if [ -f "${coverurl}" ];then
+        if [ -n "${coverurl}" ] && [ -f "${coverurl}" ];then
             COVERFILE="${coverurl}"
             coverurl=""
         else
-            COVERFILE=${DEFAULT_COVER}
+            COVERFILE="${DEFAULT_COVER}"
         fi
     fi
 
-    if [ "$COVERFILE" == "" ];then
+    if [ "$COVERFILE" == "" ] || [ ! -f "${COVERFILE}" ];then
         echo "No cover or default cover found."
         exit 99
     fi
@@ -187,6 +195,7 @@ function round_rectangles (){
     TEMPFILE3=$(mktemp)    
     convert "${COVERFILE}" -resize "600x600" "${TEMPFILE3}"
     round_rectangles "${TEMPFILE3}" "${YADSHOW_CACHE}/nowplaying.album.png"
+    rm -f -- "${TEMPFILE3}"
 
 
 
