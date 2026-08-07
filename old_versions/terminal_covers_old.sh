@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # bc for calculation
 # curl for unsplash images
 # requires mpc to get song info

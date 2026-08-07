@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ################################################################################
 #  A simple utility to allow playlist selection and playing from cli for MPD

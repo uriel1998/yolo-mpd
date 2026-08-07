@@ -17,6 +17,7 @@ LYRICSFILE=""
 MPD_MUSIC_BASE="${HOME}/Music"
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 SAME_SONG=0
+RICH_PID=""
 # checking if MPD_HOST is set or exists in .bashrc
 # if neither is set, will just go with defaults (which will fail if 
 # password is set.) 
@@ -39,7 +40,15 @@ if [ ! -d "${YADSHOW_CACHE}" ];then
 fi
 
 cleanup () {
+    if [ -n "${RICH_PID}" ] && kill -0 "${RICH_PID}" 2>/dev/null; then
+        kill "${RICH_PID}" 2>/dev/null
+        wait "${RICH_PID}" 2>/dev/null
+    fi
     rm -f "${LYRICTMP}"
+}
+
+strip_lrc_timestamps () {
+    sed 's/^\[[0-9][0-9]*:[0-9][0-9]\([.:][0-9][0-9]*\)\?\][[:space:]]*//'
 }
 
 ensure_plaintext_lyrics () {
@@ -54,7 +63,7 @@ ensure_plaintext_lyrics () {
     lyrics_dir=$(dirname "${plaintext_lyrics_file}")
     dir_mtime=$(stat -c %y "${lyrics_dir}" 2>/dev/null)
 
-    sed 's/\[.*\]//g' "${timed_lyrics_file}" > "${plaintext_lyrics_file}"
+    strip_lrc_timestamps < "${timed_lyrics_file}" > "${plaintext_lyrics_file}"
 
     # Creating the sidecar .txt updates the directory mtime; restore it so
     # rendering lyrics does not look like a music library edit.
@@ -179,6 +188,9 @@ find_playing_song (){
         fi
     fi
 
+    if [ ! -f "${YADSHOW_CACHE}/nowplaying.lyrics.md" ];then
+        : > "${YADSHOW_CACHE}/nowplaying.lyrics.md"
+    fi
     bob=$(head -n1 "${YADSHOW_CACHE}/nowplaying.lyrics.md")
     # TEST HERE; if it's the same, then bounce back
     if [[ "${SONGSTRING}" != "${bob:2}" ]]; then 
@@ -197,7 +209,7 @@ find_playing_song (){
             if [ ! -f "${SONGFILE%.*}.txt" ];then
                 ensure_plaintext_lyrics "${LYRICSFILE}" "${SONGFILE%.*}.txt"
             fi
-            sed 's/\[.*\]//g' "${LYRICSFILE}" > "${LYRICTMP}"
+            strip_lrc_timestamps < "${LYRICSFILE}" > "${LYRICTMP}"
             LYRICSFILE="${LYRICTMP}"
         fi
     else
@@ -212,22 +224,30 @@ main () {
 
     if [[ $SAME_SONG -eq 0 ]];then
         
-        height=$(tput cols)
+        height=$(tput lines)
         usable_height=$(( height - 20 ))
+        if [ "${usable_height}" -lt 1 ];then
+            usable_height=1
+        fi
         
         # global var LYRICSFILE should be set now
         echo "# ${SONGSTRING}" > "${YADSHOW_CACHE}/nowplaying.lyrics.md"
         echo " " >> "${YADSHOW_CACHE}/nowplaying.lyrics.md"
-        lyric_len=$(cat "${LYRICSFILE}" | wc -l )
+        lyric_len=$(wc -l < "${LYRICSFILE}")
         if [ $lyric_len -gt $usable_height ];then
-            cat "${LYRICSFILE}" | sed 's/$/  /' | head --lines=${usable_height} >> "${YADSHOW_CACHE}/nowplaying.lyrics.md"
+            sed 's/$/  /' "${LYRICSFILE}" | head --lines=${usable_height} >> "${YADSHOW_CACHE}/nowplaying.lyrics.md"
             echo "   "
             echo "### lyrics continue" >> "${YADSHOW_CACHE}/nowplaying.lyrics.md"
         else
-            cat "${LYRICSFILE}" | sed 's/$/  /' >> "${YADSHOW_CACHE}/nowplaying.lyrics.md"
+            sed 's/$/  /' "${LYRICSFILE}" >> "${YADSHOW_CACHE}/nowplaying.lyrics.md"
         fi
         clear
-        (rich "${YADSHOW_CACHE}/nowplaying.lyrics.md" &)
+        if [ -n "${RICH_PID}" ] && kill -0 "${RICH_PID}" 2>/dev/null; then
+            kill "${RICH_PID}" 2>/dev/null
+            wait "${RICH_PID}" 2>/dev/null
+        fi
+        rich "${YADSHOW_CACHE}/nowplaying.lyrics.md" &
+        RICH_PID=$!
         ##############################################################################
         # Display what we have found
         ##############################################################################
