@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 export PLAYLISTS=/home/steven/Documents/Playlists/Clementine
 export FORMPD=/home/steven/Documents/Playlists/mpd

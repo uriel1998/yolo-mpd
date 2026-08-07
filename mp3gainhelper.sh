@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ########################################################################
 # This script is designed as a wrapper for LOUDGAIN that handles errors
@@ -121,7 +121,6 @@ else
 fi
 
 mapfile -t startdirs < <(printf '%s\n' "${startdirs[@]}" | sort -u)
-printf '%s\n' "${startdirs[@]}"
 
 max_jobs=${MAX_JOBS:-$(nproc 2>/dev/null || echo 8)}
 if ! [[ $max_jobs =~ ^[1-9][0-9]*$ ]]; then
@@ -129,6 +128,9 @@ if ! [[ $max_jobs =~ ^[1-9][0-9]*$ ]]; then
 fi
 
 max_jobs=$((max_jobs-4))
+if (( max_jobs < 1 )); then
+    max_jobs=1
+fi
 
 process_dir() {
     local dir=$1
@@ -175,16 +177,26 @@ process_dir() {
 }
 
 watchcount=0
+had_failure=0
 while IFS= read -r -d '' dir; do
     process_dir "$dir" &
     ((watchcount += 1))
 
     if (( watchcount >= max_jobs )); then
-        wait -n
+        if ! wait -n; then
+            had_failure=1
+        fi
         ((watchcount -= 1))
     fi
 done < <(
     find "${startdirs[@]}" -type f -iname '*.mp3' -printf '%h\0' | sort -zu
 )
 
-wait
+while (( watchcount > 0 )); do
+    if ! wait -n; then
+        had_failure=1
+    fi
+    ((watchcount -= 1))
+done
+
+exit "${had_failure}"

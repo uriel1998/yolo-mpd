@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # This is a very simple script to aid with the use of MPOD and other MPD 
 # controllers that utilize your local webserver to find and serve up album 

@@ -251,7 +251,7 @@ function create_labeled_preview() {
 
 function loud() {
     if [ $LOUD -eq 1 ];then
-        echo "$@"
+        printf '%s\n' "$*" >&2
     fi
 }
 
@@ -265,7 +265,7 @@ function display_help {
     echo "-c|--checkall     : Manually verify all album covers, even if only one."
     echo "-e|--everything   : Check online for covers for every album."
     echo "-s|--safe         : Just say what it would do, do not actually do operations."
-    echo "-l|--loud         : Verbose output."
+    echo "-l|--loud|--verbose : Verbose output to stderr."
     echo "-d|--dir [DIR]    : Specify the music directory to scan."
 }
 
@@ -847,7 +847,7 @@ function directory_check () {
             shift ;;
         -e|--everything) EVERYTHING=1
             shift ;;
-        -l|--loud) LOUD=1
+        -l|--loud|--verbose) LOUD=1
             shift ;;
         -r|--remove) REMOVE=1
             shift ;;

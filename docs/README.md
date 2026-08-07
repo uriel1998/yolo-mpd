@@ -30,6 +30,8 @@ Various MP3 and MPD tweaks, tips, tools, and scripts I've put together or found 
 
   13. [mediakey.sh](mediakey.sh)
 
+  14. [f_fix_lyrics](f_fix_lyrics)
+
 # stream_to_mpd  
 
 Dependencies:  
@@ -179,6 +181,8 @@ One or more of the following:
 
 # mpdcontrol.sh
 
+`mpdcontrol` has been rewritten and now lives at [uriel1998/mpdcontrol](https://github.com/uriel1998/mpdcontrol). The old versions from this repository have been moved into a subdirectory here.
+
 Select whether you want to choose a playlist, or by album, artist, or genre. Clears playlist (IF YOU USE THE SWITCH -c), adds what you chose, starts playing. Optionally, if `fzf` is installed on the system, it will seamlessly substitute that program in, with the option to select multiple entries at once (use TAB). 
 
 You can also use the command line argument `nowalbum` or `nowartist` to add the currently playing album or all of the album artist's tracks to the queue (put `-c` first to have it clear the queue first).
@@ -266,4 +270,3 @@ Dependencies:
 
 This script uses the MPRIS interface to control your media players.  
 Currently supported players include MPD, Pithos, Audacious, and Clementine
-

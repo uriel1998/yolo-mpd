@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ########################################################################
 # This script is designed as a wrapper for bpm-tag and eyeD3 that both

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ## -- This script will imitate Gnome's Media Controls (Play/Pause, Next, Previous, Stop) -- ##
 ## -- It will assume you are using a media application that is compatible with MPRIS or  -- ##

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ##############################################################################
 #  
@@ -127,5 +127,4 @@ if [ -n "${URL}" ];then
 else
     echo "No valid URL parsed or direct stream found."
 fi
-
 

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Solutions from
 # http://superuser.com/questions/363614/leave-xterm-open-after-task-is-complete
