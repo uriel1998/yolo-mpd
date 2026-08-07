@@ -1,272 +1,457 @@
 yolo-mpd
 ========
 
-Various MP3 and MPD tweaks, tips, tools, and scripts I've put together or found and tweaked.
+Various MP3 and MPD tweaks, tips, tools, and scripts I have put together or found and then tweaked.
 
-## Contents
-  1. [stream_to_mpd](stream_to_mpd)
+This README documents every Bash script in the repository root. Legacy scripts that were moved into `old_versions/` are not covered here except where they matter for migration notes.
 
-  2. [f_fix_covers](f_fix_covers)
+## Script Index
 
-  3. [yad_show_mpd](yad_show_mpd)
+### Library repair and tagging
 
-  4. [terminalcovers.sh](terminalcovers.sh)
+* `f_fix_covers.sh`: Reconcile, search, select, and embed album art for MP3 directories.
+* `rerun_non_square_covers.sh`: Re-run `f_fix_covers.sh` only on directories whose `cover.jpg` is not square.
+* `f_fix_lyrics.sh`: Build missing `.lrc` and `.txt` lyric sidecars, with resumable queue support.
+* `bpmtoolshelper.sh`: Write BPM tags while preserving original file timestamps.
+* `mp3gainhelper.sh`: Run `loudgain` per directory while preserving timestamps and propagating failures.
+* `edit_current_mp3tags.sh`: Print the currently playing local track path so another editor workflow can operate on it.
 
-  5. [mpdcontrol.sh](mpdcontrol.sh)
+### Now playing displays
 
-  6. [terminal-multiplexer](terminal-multiplexer)
+* `yad_show_mpd.sh`: Show a popup with current cover art and track name.
+* `terminal_covers.sh`: Render current cover art directly in a terminal, with optional desktop notification.
+* `terminal_lyrics.sh`: Render current lyrics in a terminal, preferring `.lrc`, then `.txt`, then a default file.
+* `show_covers_w3mimage.sh`: Display current album art through `w3mimg.sh`.
+* `terminal_multiplexer.sh`: Build a tmux music layout around `ncmpcpp`, `cava`, and `terminal_covers.sh`.
 
-  7. [bpmhelper](bpmhelper)
+### Playback control and integration
 
-  8. [mp3gainhelper](mp3gainhelper)
+* `mediakey.sh`: Send play/pause/next/previous/stop actions through MPRIS with optional player targeting.
+* `mediakey_no_checking.sh`: Faster mediakey variant with lighter player checks but the same action model.
+* `nowplaying_to_maubot.sh`: Build a composite “now playing” image, set the desktop background, and post the current track to Maubot.
 
-  9. [terminal_multiplexer](terminal_multiplexer)
+### Streaming, playlists, and cover export
 
-  10. [bpmhelper.sh](bpmhelper.sh)
+* `stream_to_mpd.sh`: Resolve a stream URL or playlist and send it to MPD, a playlist file, or local playback.
+* `update_playlists_for_mpd.sh`: Convert Clementine `.m3u` playlists into MPD-friendly relative-path playlists.
+* `webserver_covers.sh`: Mirror cover images into a webserver tree without exposing the entire music library.
 
-  11. [mp3gainhelper.sh](mp3gainhelper.sh)
+### Legacy note
 
-  12. [webserver.covers.sh](webserver.covers.sh)
+* `mpdcontrol` was rewritten and now lives at <https://github.com/uriel1998/mpdcontrol>.
+* Older in-repo copies were moved to `old_versions/`.
 
-  13. [mediakey.sh](mediakey.sh)
+## Common assumptions
 
-  14. [f_fix_lyrics](f_fix_lyrics)
+Most scripts assume:
 
-# stream_to_mpd  
+* your music library lives at `${HOME}/Music`
+* `MPD_HOST` is already set, or exists in `${HOME}/.bashrc`
+* album art is stored as `cover.jpg` or `folder.jpg`
+* file changes should preserve timestamps whenever practical
 
-Dependencies:  
+Several scripts also keep scratch files in `${XDG_CACHE_HOME:-$HOME/.config}/yadshow`.
 
-* [streamlink](https://streamlink.github.io/)  
-* `grep`, `awk`,`curl`,`wget`, and `zenity`, all likely included in your distro packaging.  
+## Script Reference
 
-Feed this utility a stream (including anything `streamlink` can handle, such as twitch music streamers) and it will pipe it through to your MPD server or save the stream URL in a file (such as an MPD playlist).  Uses `zenity` for gui dialogs if you do not specify elements on the commandline. Originally inspired by [this blog post](https://www.gebbl.net/2013/10/playing-internet-radio-streams-mpdmpc-little-bash-python/)
+### `f_fix_covers.sh`
 
-Usage: `stream_to_mpd [OPTIONS] [STREAM_URL]`  
+Repairs album art for MP3 directories by comparing `cover.jpg`, `folder.jpg`, and embedded artwork, optionally prompting for a choice, searching online, and embedding the selected result back into the files.
 
-`--host PASSWORD@HOST`: Needed if your MPD server is not on localhost or you have a password set  
-`--mpd` : skip right to MPD output  
-`--playlist` : skip right to adding stream URL to a file/playlist  
-`--native` : Throw the result to streamlink (probably not needed, but hey)  
-`--bookmarks` : use `zenity` to choose a hardcoded bookmark instead of a stream URL  
+Important behavior:
 
-# f_fix_covers
+* Assumes a single album per directory.
+* If exactly one cover variant exists, it is treated as authoritative unless you force verification.
+* `--safe` prints intended actions without changing files.
+* `--checkall` forces manual verification.
+* `--everything` forces online search for every album.
+* `--remove` clears embedded art before writing the selected cover.
+* `--autoembed` embeds the selected cover into MP3 files.
+* `--loud` or `--verbose` sends verbose diagnostics to stderr.
 
-This is to finally fix those f'in covers in your music directory and to synchronize them between `cover.jpg`, `folder.jpg` and what's embedded in the file.   (Standard disclaimer: It worked on my system and files, I've done my best to catch edge cases, but backup your files first or use `--safe`.)
+Usage:
 
-If they all match, it will ensure they're all the same. If one or more locations is missing the cover, it will add it there. (Including embedded in the MP3 with `--autoembed`.
-
-If the `cover.jpg`, `folder.jpg`, or embedded cover differ, it will present them to you (with an audible alarm if you use `--ping`) so that you can select the correct one. If you choose none of them, it will search online for cover art.  
-
-If you use `--safe` it will merely output what commands it *would* run.
-
-If you use `--remove` it will remove existing covers from MP3s before adding the chosen cover.
-
-If you use `--loud` it will spit a *lot* of stuff out onto the terminal.  Some sub-commands output text to `$STDOUT` whether I want them to or not.
-
-If you use `--checkall`, it will prompt you to confirm each album cover, even if it all matches.
-
-You can also force it to search online for each album using `--everything`, which implies `--checkall` in practice, as the checksum of a downloaded cover *probably* is slightly different than what you have. 
-
-Which sounds like a lot, but you can point `f_fix_covers.sh` at  your *entire* music collection, or just at a *specific* album directory. Feed the ones you want to check in one at a time with `xargs` if you feel like it.
-
-Two important notes: 
-
-1. **This script assumes that each directory contains the same album, even if the artists are different.**  You will get *wrong* results if you have a bunch of different MP3s from different albums in the same directory.
-2. If there is a single existing cover -- or single version, rather -- in the directory, the script **assumes it is correct** and will automatically assume that it is the correct cover. If you want to **verify** existing covers, use `--checkall` or `--everything`.
-## Usage
-
-    `f_fix_covers.sh -d [PATH/TO/MUSIC] [OPTIONS]`
-
-### Options:
-    
-* `-h|--help         : This.`
-* `-a|--autoembed    : Embed found, selected covers into MP3s.`
-* `-p|--ping         : Play audible tone when user input needed.`
-* `-r|--remove       : Remove existing embedded images in MP3s when cover found.`
-* `-c|--checkall     : Manually verify all album covers, even if only one.`
-* `-e|--everything   : Check online for covers for every album.`
-* `-s|--safe         : Just say what it would do, do not actually do operations.`
-* `-l|--loud         : Verbose output.`
-* `-d|--dir [DIR]    : Specify the music directory to scan.`
-
-## Dependencies (or the stuff that does the heavy lifting):
-
- * [eye3D](http://eyed3.nicfit.net/)
- * [glyr](https://github.com/sahib/glyr)
- * [eyeD3](http://eyed3.nicfit.net/)
- * [sacad](https://github.com/desbma/sacad)
- * [YAD](https://sourceforge.net/projects/yad-dialog/) 
- 
- The following can be installed on Debian/Ubuntu based systems by:
- `sudo apt install feh mpg123 imagemagick ffmpeg grep sed wget curl coreutils`.
- 
- * `feh` 
- * `mpg123` or `mplayer` or `mpv`
- * `imagemagick` 
- * `ffprobe` from `ffmpeg`
- * `grep` 
- * `sed` 
- * `wget` 
- * `curl` 
- * `timeout` from `coreutils`
- 
- 
-# yad_show_mpd
-
-# yad_show_mpd.sh
-
-This script -- which should also have an image file named `defaultcover.jpg` in 
-its directory -- requires [mpc](http://git.musicpd.org/cgit/master/mpc.git/), 
-[imagemagick](https://imagemagick.org/), and [YAD](https://sourceforge.net/projects/yad-dialog/) to 
-create a popup with the albumart and trackname of the currently playing song from 
-[MPD, the music player daemon](https://www.musicpd.org/) or `audacity` with the use of `audtool`.
-
-It assumes your music directory is in `${HOME}/Music`, that your album art is 
-named either `cover.jpg` or `folder.jpg` and that `mpc` is already 
-set up correctly. The window will auto-close after 10 seconds.
-
-It will attempt to use the environment variable `MPD_HOST`, and 
-if it is not found, will examine ${HOME}/.bashrc to see if it is set there (if a 
-non-login shell) and set it for the program. If you have a password set for MPD, 
-you *must* use `MPD_HOST=Password@host` for it to work.
-
-
-![output](https://github.com/uriel1998/yolo-mpd/raw/master/yad_show_mpd.png "What it looks like")
-
-
-# terminalcovers.sh
-
-
-The first version is kind of a hack-y way to show terminal covers in the terminal. It's `terminal_covers_old.sh` if you're interested.
-
-The second version of `terminal_covers.sh` is *much* better.  Using the basic logic (and limited 
-cache system) as `yadshow` above, along with help from `qdbus`, it's able to pick up
-covers from a much wider range of players without any user input.  Currently supports 
-Clementine, Strawberry, PlexAmp, and MPD out of the box (in that order of priority).  
-
-### Note for MPD
-
-You should set MPD_HOST or have it exist in `.bashrc`; if neither is set, it will go with the defaults, which *will* fail if you have a password set.  `MPD_HOST=PASSWORD@HOST`  If you have a non-standard port, you'll need to edit the script.  It assumes your music's base directory is `${HOME}/Music`.
-
-`terminal_covers.sh` also uses a range of tools to convert the image into something even a pretty 
-non-advanced terminal can show.  It rounds rectangles of the coverart (useful if you pickup the resulting image 
-with something like `conky`) using `imagemagick` if installed, and will use (in this order) 
-these tools to render the images:  `timg`, `jp2a`, `img2txt.py`, `asciiart`.  `jp2a` and `asciiart` are 
-in Debian repositories, but `timg` is worth it.
-
-`terminal_covers.sh`  can also optionally give you a notification via `notify-send` if you run it with `--notify` as the (only) argument.
-
-It runs in a terminal window on a timed 2-second loop. If the song information is
-unchanged, it does nothing. If it's changed (either because another player started or the track changed), 
-then it figures out what the album art is and goes from there.  
-
-You can also use the output files in `${HOME}/.cache/yadshow/` with other programs to get the song information and cover as well.
-
-
-Dependencies: 
-
-* [mpc](http://git.musicpd.org/cgit/master/mpc.git/)
-* [qdbus](https://manpages.ubuntu.com/manpages/focal/man1/qdbus.1.html) -- in the `qtchooser` package on Debian
-
-One or more of the following:  
-* [timg](https://github.com/hzeller/timg)
-* [jp2a](https://github.com/cslarsen/jp2a)
-* [img2txt](https://pypi.org/project/img2txt/)
-* [asciiart](https://commandmasters.com/commands/asciiart-linux/)
-
-![output](https://github.com/uriel1998/yolo-mpd/raw/master/terminal_covers.gif "What it looks like")
-
-(The image above also has `cava`, `scope-tui`, and `ternminal` in it, and is using `timg` for the art.)
-
-
-# mpdcontrol.sh
-
-`mpdcontrol` has been rewritten and now lives at [uriel1998/mpdcontrol](https://github.com/uriel1998/mpdcontrol). The old versions from this repository have been moved into a subdirectory here.
-
-Select whether you want to choose a playlist, or by album, artist, or genre. Clears playlist (IF YOU USE THE SWITCH -c), adds what you chose, starts playing. Optionally, if `fzf` is installed on the system, it will seamlessly substitute that program in, with the option to select multiple entries at once (use TAB). 
-
-You can also use the command line argument `nowalbum` or `nowartist` to add the currently playing album or all of the album artist's tracks to the queue (put `-c` first to have it clear the queue first).
-
-The SSH version is for exactly that, especially if you don't have `pick` on that machine.
-The `mpdcontrol_add.sh` file does *not* clear the queue so that you can add to the existing playlist.
-
-Dependencies: 
-* [pick](https://github.com/thoughtbot/pick)
-* [mpc](http://git.musicpd.org/cgit/master/mpc.git/)
-
-Optional Dependency
-* [fzf](https://github.com/junegunn/fzf)
-
-![output](https://github.com/uriel1998/yolo-mpd/raw/master/out.gif "What it looks like")
-
-
-# terminal_multiplexer
-
-Uses tmux, xterm, ncmpcpp, cava, and [terminal covers](https://github.com/uriel1998/yolo-mpd#terminalcoverssh) to provide a nice layout. Title set to screen by wmctrl.  No tmux.conf file needed.  Inspired by [this reddit post](https://www.reddit.com/r/unixporn/comments/3q4y1m/openbox_music_now_with_tmux_and_album_art/).
-
-Dependencies: 
-* [mpc](http://git.musicpd.org/cgit/master/mpc.git/)  
-* [tmux](https://tmux.github.io/)  
-* [ncmpcpp](https://github.com/arybczak/ncmpcpp)  
-* [wmctrl](https://linux.die.net/man/1/wmctrl)  
-
-One or more of the following:  
-
-* [AA-lib](http://aa-project.sourceforge.net/aview/)
-* [libcaca](http://caca.zoy.org/wiki/libcaca)
-* [img2text](https://github.com/hit9/img2txt)
-
-![AA-lib](https://github.com/uriel1998/yolo-mpd/raw/master/aaview_layout.jpg)
-![asciiart](https://github.com/uriel1998/yolo-mpd/raw/master/asciiart_layout.jpg "asciiart output")
-![img2txt](https://github.com/uriel1998/yolo-mpd/raw/master/img2txt_layout.jpg "img2txt output")
-
-
-# bpmhelper.sh
-
-Uses the bpm-tag package, which analyzes BPM quite nicely on linux, but doesn't
-preserve the file date. So this wrapper uses eyeD3 to determine if a BPM is 
-already written, then if not, analyzes the file, then uses eyeD3 to do the 
-writing to the file. I already have eyeD3 for the album art script; a solution 
-that does not rely on that dependency can be found 
-at [bpmwrap](https://github.com/meridius/bpmwrap).
-
-`bpm-tag` outputs error messages if you do not have id3v2 already installed and 
-thus makes the script fail. Install the debian package `id3v2`.
-
-Accepts two command line arguments (optional)
-
-Use --save-existing to save existing data.  
-Use --skip-existing to skip further analysis of those that have existing BPM
-Use --quiet to suppress output (eyeD3 may still output to the screen)
-
-Analyzes the current directory *and all subdirectories*.
-
-Dependencies
-* [bpm-tools](http://www.pogo.org.uk/~mark/bpm-tools/)
-* [eye3D](http://eyed3.nicfit.net/)
-
-# mp3gainhelper.sh
-
-Well, switched to `loudgain` which uses a (better) way of calculating gain. HOWEVER, unlike `mp3gain`, 
-it does not have a way to preserve file date and time.  So the gainhelper is still here. 
-
-Accepts only one command line argument (optional) giving the directory to analyze. Otherwise analyzes the current directory *and all subdirectories*.
-
-Dependencies: 
-* [loudgain](https://github.com/Moonbase59/loudgain)
-
-
-# webserver.covers.sh
-
-Very simple script to make your album covers accessible by MPoD or 
-other remote clients without exposing your entire music directory by 
-copying the cover files to the webserver root. (You need to edit this, obvs.)
+```bash
+./f_fix_covers.sh -d /path/to/music [options]
+```
 
 Dependencies:
-* [rsync](https://en.wikipedia.org/wiki/Rsync)
+
+* `eyeD3`
+* `glyr`
+* `sacad`
+* `yad`
+* `feh`
+* `imagemagick`
+* `ffprobe`
+* `curl`, `wget`, `grep`, `sed`, `timeout`
+
+### `rerun_non_square_covers.sh`
+
+Scans a root tree for `cover.jpg` files whose width and height differ, then reruns `f_fix_covers.sh` on those directories only.
+
+Usage:
+
+```bash
+./rerun_non_square_covers.sh [--dry-run] ROOT_DIR
+```
+
+Dependencies:
+
+* `identify` from ImageMagick
+* `f_fix_covers.sh`
+
+### `f_fix_lyrics.sh`
+
+Recursively scans MP3 files and creates missing synchronized (`.lrc`) and plain-text (`.txt`) lyric sidecars.
+
+Important behavior:
+
+* Uses a persistent queue file, `f_fix_lyrics.queue`, in the repo root for resumable processing.
+* Prefers an existing queue if present.
+* Removes queue entries only after each file finishes, so interrupted runs resume correctly.
+* Treats `.lrc` and `.txt` as separate artifacts: if only one exists, the other is still generated.
+* Can derive `.txt` from `.lrc` when only synchronized lyrics exist.
+* Uses LRCLIB first, then embedded synced lyrics, then embedded plain lyrics.
+* `--force` disables the startup sidecar-pruning pass and rechecks all tracks in scope.
+
+Usage:
+
+```bash
+./f_fix_lyrics.sh [--loud] [--force] [--delay SECONDS] [--base DIRECTORY]
+```
+
+Dependencies:
+
+* `exiftool`
+* `curl`
+* `jq`
+* `find`, `grep`, `sed`, `awk`
+
+### `bpmtoolshelper.sh`
+
+Computes BPM values with `bpm-tag`, writes them with `eyeD3`, and restores the original file timestamp afterward.
+
+Behavior:
+
+* Recurses from the current directory.
+* `--skip` skips files that already have a valid BPM tag.
+* `--save` compares against an existing BPM and warns when it differs.
+* `--quiet` reduces console output.
+
+Usage:
+
+```bash
+./bpmtoolshelper.sh [--save] [--skip] [--quiet]
+```
+
+Dependencies:
+
+* `bpm-tag`
+* `eyeD3`
+* `stat`, `touch`, `find`
+
+### `mp3gainhelper.sh`
+
+Runs `loudgain` per directory while preserving file timestamps after modification.
+
+Behavior:
+
+* Defaults to the current directory when no directory is supplied.
+* Accepts one or more literal directories or wildcard directory patterns.
+* Runs work in parallel, with `MAX_JOBS` controlling concurrency.
+* `--noclobber` skips directories where every MP3 already has both ReplayGain track and album tags.
+* Exits non-zero if any background `loudgain` job fails.
+
+Usage:
+
+```bash
+./mp3gainhelper.sh [--noclobber] [DIRECTORY ...]
+```
+
+Dependencies:
+
+* `loudgain`
+* `exiftool`
+* `find`, `realpath`, `mktemp`, `touch`
+
+### `edit_current_mp3tags.sh`
+
+Locates the currently playing local file across supported players and prints the resolved on-disk file path.
+
+This is mainly a helper for tag-editing workflows that already know what to do with the returned path.
+
+Usage:
+
+```bash
+./edit_current_mp3tags.sh
+```
+
+Dependencies:
+
+* `audtool`, `qdbus`, or MPD plus `mpc`
+
+### `yad_show_mpd.sh`
+
+Shows the current cover art and track name in a YAD popup window.
+
+Behavior:
+
+* Supports Audacious, Clementine, Strawberry, Plexamp, and MPD.
+* Builds a rounded-corner cover image in the cache directory before display.
+* Falls back to `defaultcover.jpg` in the repo root when no cover is found.
+
+Usage:
+
+```bash
+./yad_show_mpd.sh
+```
+
+Dependencies:
+
+* `yad`
+* `mpc`
+* `qdbus` or `audtool`
+* `imagemagick`
+
+### `terminal_covers.sh`
+
+Shows current cover art in a terminal, using one of several terminal-friendly image renderers.
+
+Behavior:
+
+* Supports Audacious, Clementine, Strawberry, Plexamp, and MPD.
+* Writes helper output files into the YAD cache directory.
+* Can optionally send a desktop notification with `--notify`.
+* Uses `timg`, `jp2a`, `img2txt.py`, or `asciiart` in that order.
+
+Usage:
+
+```bash
+./terminal_covers.sh [--notify]
+```
+
+Dependencies:
+
+* `mpc`
+* `qdbus` or `audtool`
+* one of `timg`, `jp2a`, `img2txt.py`, `asciiart`
+* optionally `convert` and `notify-send`
+
+### `terminal_lyrics.sh`
+
+Shows lyrics for the current track in the terminal.
+
+Behavior:
+
+* Prefers `.lrc`, then `.txt`, then `default_lyrics.md`.
+* Creates a plain-text `.txt` sidecar from `.lrc` if needed.
+* Truncates output to fit the current terminal height.
+* Reuses and replaces the running `rich` renderer instead of leaking background processes.
+
+Usage:
+
+```bash
+./terminal_lyrics.sh
+```
+
+Dependencies:
+
+* `rich`
+* `mpc`
+* `qdbus` or `audtool`
+
+### `show_covers_w3mimage.sh`
+
+Watches MPD for player events and passes the resolved cover image to `w3mimg.sh`.
+
+Behavior:
+
+* Looks for `cover.jpg`, then `folder.jpg`, then falls back to `defaultcover.jpg`.
+* Uses `${HOME}/Music` as the library base.
+
+Usage:
+
+```bash
+./show_covers_w3mimage.sh
+```
+
+Dependencies:
+
+* `mpc`
+* `w3mimg.sh`
+
+### `terminal_multiplexer.sh`
+
+Creates or reattaches to a tmux session named `MPD` with panes for:
+
+* `ncmpcpp`
+* `cava`
+* `terminal_covers.sh`
+
+Usage:
+
+```bash
+./terminal_multiplexer.sh
+```
+
+Dependencies:
+
+* `tmux`
+* `wmctrl`
+* `ncmpcpp`
+* `cava`
+* `terminal_covers.sh`
+
+### `mediakey.sh`
+
+Uses MPRIS to send playback controls to active players, with optional player selection.
+
+Supported actions:
+
+* `p`: play/pause toggle
+* `n`: next
+* `b`: previous
+* `s`: stop
+* `z`: pause
+
+Supported player selectors:
+
+* `p`: Pithos
+* `a`: Audacious
+* `m`: MPD
+* `c`: Clementine
+
+Usage:
+
+```bash
+./mediakey.sh [p|n|b|s|z] [PLAYER]
+```
+
+Dependencies:
+
+* `qdbus`
+* `mpc` for MPD state checks
+
+### `mediakey_no_checking.sh`
+
+Simpler mediakey variant that assumes the selected player or active MPRIS players are available and skips some of the extra presence checks from `mediakey.sh`.
+
+Usage:
+
+```bash
+./mediakey_no_checking.sh [p|n|b|s|z] [PLAYER]
+```
+
+Dependencies:
+
+* `qdbus`
+* `mpc` for MPD state checks
+
+### `nowplaying_to_maubot.sh`
+
+Builds a “now playing” composite image, sets it as the desktop background with `feh`, and posts the current track title to a Maubot webhook.
+
+Behavior:
+
+* Loads runtime configuration from `maubot_vars.env`.
+* Pulls artist imagery from Deezer and album art from the configured cover server.
+* Falls back to `default_artist.jpg` and `default_album.jpg`.
+* Uses optional webhook auth from `MAUBOT_HTTP_AUTH` or `MAUBOT_WEBHOOK_USER` and `MAUBOT_WEBHOOK_PASS`.
+
+Required configuration in `maubot_vars.env`:
+
+* `COVERSERVER`
+* `MATRIXSERVER`
+* `MPD_HOST`
+* `MAUBOT_WEBHOOK_INSTANCE`
+
+Usage:
+
+```bash
+./nowplaying_to_maubot.sh
+```
+
+Dependencies:
+
+* `mpc`
+* `curl`
+* `jq`
+* `wget`
+* `feh`
+* `imagemagick`
+
+### `stream_to_mpd.sh`
+
+Takes a stream URL or bookmark, resolves the underlying playable URL, and sends it to one of three destinations.
+
+Destinations:
+
+* local playback through `streamlink`
+* insertion into MPD
+* appending to a playlist file
+
+Usage:
+
+```bash
+./stream_to_mpd.sh [--host PASSWORD@HOST] [--mpd|--playlist|--native] [--bookmarks] STREAM
+```
+
+Dependencies:
+
+* `streamlink`
+* `curl`
+* `wget`
+* `grep`
+* `awk`
+* `zenity`
+* `mpc` when using MPD output
+
+### `update_playlists_for_mpd.sh`
+
+Converts `.m3u` playlists from a Clementine playlist directory into MPD-style relative-path playlists.
+
+Behavior:
+
+* Uses `PLAYLISTS` and `FORMPD` from the environment when set.
+* Otherwise defaults to the hardcoded personal directories in the script.
+* Skips playlists with `Radio` in the filename.
+* Only rewrites files when the source playlist is newer than the target.
+
+Usage:
+
+```bash
+./update_playlists_for_mpd.sh
+```
+
+Dependencies:
+
+* `sed`
+
+### `webserver_covers.sh`
+
+Mirrors only cover image files into a webserver tree while preserving directory structure.
+
+Behavior:
+
+* Copies `*.jpg` and `*.png`
+* Preserves directory layout
+* Prunes empty directories
+* Uses `${HOME}/Music/` as the source and `${HOME}/www/covers/` as the target by default
+
+Usage:
+
+```bash
+./webserver_covers.sh
+```
+
+Dependencies:
+
+* `rsync`
 
 
-# mediakey.sh
+## Some AI/LLM Use
 
-This script uses the MPRIS interface to control your media players.  
-Currently supported players include MPD, Pithos, Audacious, and Clementine
+![button_some-ai-used](https://i.imgur.com/rmiLFDD.png)
+
+The code in this repository has been to some degree written or altered by an AI tool with human supervision.  This may include one or more of the following: documentation, locating bugs, or commit messages; in this repository it's been bugsquashing and reorganizing and updating the documentation.  
