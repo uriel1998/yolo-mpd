@@ -606,7 +606,7 @@ process_mp3() {
         loud "Synchronized sidecar already exists, but force is enabled: ${lrc_file}"
     fi
 
-    if [[ -f "${lrc_file}" ]]; then
+    if [[ -f "${lrc_file}" ]] && (( FORCE == 0 )); then
         # Existing synced lyrics suppress LRCLIB and synced-tag extraction, but
         # the file may still need `.txt` generated from the `.lrc`.
         loud "Synchronized sidecar already exists: ${lrc_file}"
@@ -643,7 +643,11 @@ process_mp3() {
             loud "Could not read metadata; skipping LRCLIB lookup."
         fi
 
-        if [[ ! -f "${lrc_file}" ]]; then
+        if [[ -f "${lrc_file}" ]] && (( FORCE == 0 )); then
+            # Do not re-read embedded synced tags when the synchronized sidecar
+            # already exists. That extra ExifTool pass just wastes time.
+            loud "Skipping embedded synchronized lyric extraction because sidecar already exists."
+        else
             # Embedded synced lyrics are the local fallback when LRCLIB did not
             # produce a synchronized result.
             if extract_embedded_synced "${song_file}" "${lrc_file}"; then
@@ -726,7 +730,7 @@ main() {
     local using_queue=0
     local fallback_live_scan=0
     local queue_total=0
-    local queue_remaining=0
+    local queue_remaining_operations=0
     local live_list_file=""
     local live_total=0
     local live_index=0
@@ -774,6 +778,7 @@ main() {
 
     if (( using_queue == 1 )); then
         queue_total=$(count_operations_in_list "${QUEUE_FILE}")
+        queue_remaining_operations="${queue_total}"
         loud "Queue contains ${queue_total} lyric operation(s) needing work."
 
         while [[ -f "${QUEUE_FILE}" ]]; do
@@ -781,14 +786,17 @@ main() {
             # the active file in place for the next invocation.
             song_file=$(head -n 1 "${QUEUE_FILE}")
             [[ -n "${song_file}" ]] || break
-            queue_remaining=$(count_operations_in_list "${QUEUE_FILE}")
             song_operations=$(count_pending_operations "${song_file}")
-            loud "Progress [queue]: ${completed_operations}/${queue_total} complete; current file has ${song_operations} operation(s); ${queue_remaining} remaining including current"
+            # Do not rescan the whole queue on every iteration just to print
+            # progress. That turned progress reporting itself into a constant
+            # per-track tax that had nothing to do with LRCLIB pacing.
+            loud "Progress [queue]: ${completed_operations}/${queue_total} complete; current file has ${song_operations} operation(s); ${queue_remaining_operations} remaining including current"
 
             process_mp3 "${song_file}"
             # Only drop a queue item after its processing path returned.
             remove_first_queue_entry "${QUEUE_FILE}" "${song_file}"
             ((completed_operations += song_operations))
+            ((queue_remaining_operations -= song_operations))
             ((count++))
         done
 
@@ -814,7 +822,8 @@ main() {
         while IFS= read -r song_file; do
             [[ -n "${song_file}" ]] || continue
             song_operations=$(count_pending_operations "${song_file}")
-            loud "Progress [live scan]: ${completed_operations}/${live_total} complete; current file has ${song_operations} operation(s)"
+            live_index=$((live_index + 1))
+            loud "Progress [live scan]: ${completed_operations}/${live_total} complete; file ${live_index}; current file has ${song_operations} operation(s)"
             process_mp3 "${song_file}"
             ((completed_operations += song_operations))
             ((count++))

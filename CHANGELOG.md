@@ -137,6 +137,7 @@ The repository also now carries annotated `v0.9.x` Git tags for major project mi
 * `[fix]` `be00d04`: Fixed brittle plain-lyrics handling.
 * `[fix]` `7452a53`: Fixed edge case where existing unsynced lyrics triggered a bad error.
 * `[major]` `e057134`: Moved request delay semantics to between LRCLIB API calls rather than after every call.
+* `[fix]` `unreleased`: Stopped rescanning the entire remaining queue just to print progress and skipped redundant ExifTool lyric extraction when the matching sidecar already existed.
 
 ## `yad_show_mpd.sh`
 

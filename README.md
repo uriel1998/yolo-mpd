@@ -110,9 +110,11 @@ Important behavior:
 * Uses a persistent queue file, `f_fix_lyrics.queue`, in the repo root for resumable processing.
 * Prefers an existing queue if present.
 * Removes queue entries only after each file finishes, so interrupted runs resume correctly.
+* Reports progress against the queue without rescanning the full remaining queue on every track.
 * Treats `.lrc` and `.txt` as separate artifacts: if only one exists, the other is still generated.
 * Can derive `.txt` from `.lrc` when only synchronized lyrics exist.
 * Uses LRCLIB first, then embedded synced lyrics, then embedded plain lyrics.
+* Skips redundant embedded-lyrics extraction when the corresponding sidecar already exists, unless `--force` is used.
 * `--force` disables the startup sidecar-pruning pass and rechecks all tracks in scope.
 
 Usage:
