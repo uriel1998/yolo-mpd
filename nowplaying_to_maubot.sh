@@ -1,37 +1,44 @@
 #!/usr/bin/env bash
 
-
-
-
 export SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 source "${SCRIPT_DIR}/maubot_vars.env"
 
-echo $$ > "${SCRIPT_DIR}/nowplaying.pid"
+LOUD="${LOUD:-0}"
+PID_FILE="${SCRIPT_DIR}/nowplaying.pid"
+TMP_MVG=""
+
+echo $$ > "${PID_FILE}"
 
 function loud() {
     if [ $LOUD -eq 1 ];then
-        echo "$@"
+        printf '%s\n' "$*" >&2
     fi
 }
 
+cleanup() {
+    [ -n "${TMP_MVG}" ] && rm -f -- "${TMP_MVG}"
+    rm -f -- "${PID_FILE}"
+}
+
+trap cleanup EXIT
+
 
 function round_rectangles (){
+    TMP_MVG=$(mktemp "${SCRIPT_DIR}/tmp.XXXXXX.mvg") || return 1
 
-
-  convert "${1}" \
+    convert "${1}" \
       -format 'roundrectangle 1,1 %[fx:w+4],%[fx:h+4] 15,15' \
-      -write info:tmp.mvg \
+      -write "info:${TMP_MVG}" \
       -alpha set -bordercolor none -border 3 \
       \( +clone -alpha transparent -background none \
-         -fill white -stroke none -strokewidth 0 -draw @tmp.mvg \) \
+         -fill white -stroke none -strokewidth 0 -draw @"${TMP_MVG}" \) \
       -compose DstIn -composite \
       \( +clone -alpha transparent -background none \
-         -fill none -stroke black -strokewidth 3 -draw @tmp.mvg \
-         -fill none -stroke white -strokewidth 1 -draw @tmp.mvg \) \
+         -fill none -stroke black -strokewidth 3 -draw @"${TMP_MVG}" \
+         -fill none -stroke white -strokewidth 1 -draw @"${TMP_MVG}" \) \
       -compose Over -composite               "${2}"
-      if [ -f "${PWD}/tmp.mvg" ];then
-        rm "${PWD}/tmp.mvg"
-      fi
+    rm -f -- "${TMP_MVG}"
+    TMP_MVG=""
 }
 
 urlencode() {
@@ -55,6 +62,7 @@ get_cover_url() {
   local media_path="${1}"
   local base_url="${COVERSERVER}"
   local dir_path
+  local encoded_part=""
   dir_path=$(dirname "$media_path")
 
   local encoded_path=""
@@ -70,13 +78,20 @@ get_cover_url() {
  
 
 function get_artist_url (){
-    ARTIST_NAME="${1}"
-    ENCODED_NAME=$(echo "$ARTIST_NAME" | jq -sRr @uri)
+    local artist_name="${1}"
+    local encoded_name=""
+    local response=""
+    local image_url=""
+
+    encoded_name=$(echo "$artist_name" | jq -sRr @uri)
     # Query Deezer API
-    RESPONSE=$(curl -s "https://api.deezer.com/search/artist?q=$ENCODED_NAME")
+    response=$(curl -fsS "https://api.deezer.com/search/artist?q=${encoded_name}" 2>/dev/null) || {
+        echo ""
+        return 0
+    }
     # Extract the first image URL
-    IMAGE_URL=$(echo "$RESPONSE" | jq -r '.data[0].picture_big')
-    echo "${IMAGE_URL}"
+    image_url=$(echo "$response" | jq -r '.data[0].picture_big // empty')
+    echo "${image_url}"
 }
 
 function combine_images (){
@@ -91,12 +106,20 @@ function combine_images (){
     URL_ARTIST=$(get_artist_url "${ARTIST}")
     URL_ALBUM=$(get_cover_url "${ALBUM}")
 
-    wget -q "${URL_ARTIST}" -O "${IMG_A}"
+    if [ -n "${URL_ARTIST}" ]; then
+        wget -q "${URL_ARTIST}" -O "${IMG_A}"
+    else
+        false
+    fi
     if [ "$?" != "0" ];then
         loud "[warn] Artist image not found, using default."
         cp "${SCRIPT_DIR}/default_artist.jpg" "${IMG_A}"
     fi
-    wget -q "${URL_ALBUM}" -O "${IMG_B}"
+    if [ -n "${URL_ALBUM}" ]; then
+        wget -q "${URL_ALBUM}" -O "${IMG_B}"
+    else
+        false
+    fi
     if [ "$?" != "0" ];then
         loud "[warn] Cover not found, using default cover."
         cp "${SCRIPT_DIR}/default_album.jpg" "${IMG_B}"
@@ -126,30 +149,47 @@ function combine_images (){
     composite -geometry +$B_X+$B_Y "${TEMPDIR}/B_final.png" "${TEMPDIR}/D_temp2.png" "$IMG_D"
 
     rm -rf "${TEMPDIR}"
-    
+
 }
 
+post_to_maubot() {
+    local songstring="$1"
+    local json_payload=""
+    local -a curl_args
 
-while [ -f "${SCRIPT_DIR}/nowplaying.pid" ];do
+    json_payload=$(jq -n \
+      --arg title "${songstring}" \
+      '{
+        title: $title
+      }')
+
+    curl_args=(-X POST -H "Content-Type: application/json")
+    if [ -n "${MAUBOT_HTTP_AUTH:-}" ]; then
+        curl_args+=(-u "${MAUBOT_HTTP_AUTH}")
+    elif [ -n "${MAUBOT_WEBHOOK_USER:-}" ] && [ -n "${MAUBOT_WEBHOOK_PASS:-}" ]; then
+        curl_args+=(-u "${MAUBOT_WEBHOOK_USER}:${MAUBOT_WEBHOOK_PASS}")
+    fi
+
+    curl "${curl_args[@]}" \
+        "${MATRIXSERVER}/_matrix/maubot/plugin/${MAUBOT_WEBHOOK_INSTANCE}/send" \
+        -d "${json_payload}"
+}
+
+while [ -f "${PID_FILE}" ];do
     SONGSTRING_PRIOR="${SONGSTRING}"
     SONGSTRING=$(mpc --host "$MPD_HOST" current --format "%artist% : “%title%” from *%album%*")
-    if [ "${SONGSTRING}" != "${SONGSTRING_PRIOR}" ];then
+    if [ -n "${SONGSTRING}" ] && [ "${SONGSTRING}" != "${SONGSTRING_PRIOR}" ];then
         loud "[info] Getting artist, cover images."
         ALBUMFILE=$(mpc --host "$MPD_HOST" current --format "%file%")
         ARTIST=$(mpc --host "$MPD_HOST" current --format "%albumartist%")
+        if [ -z "${ARTIST}" ]; then
+            ARTIST=$(mpc --host "$MPD_HOST" current --format "%artist%")
+        fi
         combine_images "${ARTIST}" "${ALBUMFILE}"
         env DISPLAY=:0.0 feh --bg-fill --no-xinerama "${SCRIPT_DIR}/now_playing.jpg" 2>/dev/null
         
         loud "[info] Posting ${SONGSTRING} to maubot"
-#        Build the JSON safely with jq
-        json_payload=$(jq -n \
-          --arg title "${SONGSTRING}" \
-          '{
-            title: $title
-          }')
-
-        # Then send it with curl
-        curl -X POST -H "Content-Type: application/json" -u abc:123 "${MATRIXSERVER}/_matrix/maubot/plugin/${MAUBOT_WEBHOOK_INSTANCE}/send" -d "$json_payload"
+        post_to_maubot "${SONGSTRING}"
     fi
     loud "[info] Posted to maubot, waiting"    
     # need a timeout script here maybe?
