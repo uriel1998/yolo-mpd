@@ -10,4 +10,4 @@
 # Reference: https://unix.stackexchange.com/questions/83593/copy-specific-file-type-keeping-the-folder-structure
 #
 
-rsync -a --prune-empty-dirs --include '*/' --include '*.jpg' --include '*.png' --exclude '*' $HOME/music/ $HOME/www/covers/
+rsync -a --prune-empty-dirs --include '*/' --include '*.jpg' --include '*.png' --exclude '*' "${HOME}/Music/" "${HOME}/www/covers/"

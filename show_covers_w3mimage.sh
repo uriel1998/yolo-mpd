@@ -5,27 +5,18 @@
 
 ########### Configuration
 # TODO:  Sane defaults and autodetect
-MUSICDIR=~/music
-TMPDIR=~/tmp
+MUSICDIR="${HOME}/Music"
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+DEFAULT_COVER="${SCRIPT_DIR}/defaultcover.jpg"
 
 function get_album_art {
 	echo "### Finding cover for $ALBUM..."
-	coverart1="$SONGDIR"
-	#coverart1=$MUSICDIR/"$ALBUM"/"$ARTIST"
-	# trimming characters that jack it up...
-	coverart1=$(echo "$coverart1"| sed s/[:.]//g)
-	# getting lowercase and removing final slash
-	coverart="${coverart1,,}"
-	coverart="${coverart%/}"
-
-	if [ -f "$coverart/cover.jpg" ]; then
-		COVERART="$coverart/cover.jpg"
+	if [ -f "$SONGDIR/cover.jpg" ]; then
+		COVERART="$SONGDIR/cover.jpg"
 	elif [ -f "$SONGDIR/folder.jpg" ]; then
-		COVERART="$coverart/folder.jpg"
+		COVERART="$SONGDIR/folder.jpg"
 	else
-		curl https://unsplash.it/512/512/?random -o $TMPDIR/unsplash.jpg
-		convert $TMPDIR/unsplash.jpg -blur 0x3 $TMPDIR/unsplash_blur.jpg
-		COVERART="${$TMPDIR/unsplash_blur.jpg}"
+		COVERART="${DEFAULT_COVER}"
 	fi
 }
 
@@ -62,5 +53,4 @@ function get_album_art {
 		else
 			echo "We're getting wrong information for some reason."
 		fi
-	done
-fi
+		done

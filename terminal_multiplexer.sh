@@ -13,8 +13,13 @@ session="MPD"
 # set up tmux
 tmux start-server
 
+if tmux has-session -t "$session" 2>/dev/null; then
+    tmux attach-session -t "$session"
+    exit 0
+fi
+
 # create a new tmux session, starting vim from a saved session in the new window
-tmux new-session -d -s $session 
+tmux new-session -d -s "$session" 
 
 # Select pane 1, set dir to api, run vim
 tmux selectp -t 1 
@@ -38,4 +43,4 @@ tmux selectp -t 1
 
 
 # Finished setup, attach to the tmux session!
-tmux attach-session -t $session
+tmux attach-session -t "$session"
