@@ -15,9 +15,14 @@ MPD_MUSIC_BASE="${MPD_MUSIC_BASE:-${HOME}/Music}"
 LOUD=0
 REQUEST_DELAY="0.5"
 MAX_RETRIES=4
+FORCE=0
 LRCLIB_API="https://lrclib.net/api"
 LRCLIB_USER_AGENT="f_fix_lyrics/1.0 (local personal music-library tool)"
 LYRICTMP=""
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+QUEUE_FILE="${SCRIPT_DIR}/f_fix_lyrics.queue"
+declare -A KNOWN_TXT_STEMS=()
+declare -A KNOWN_LRC_STEMS=()
 
 ##############################################################################
 # Output
@@ -37,12 +42,13 @@ usage() {
     loud "Options:"
     loud "  -l, --loud             Enable diagnostic output on stderr"
     loud "  -b, --base DIRECTORY   MPD music root (default: \$MPD_MUSIC_BASE or ~/Music)"
+    loud "  -f, --force            Recheck files even when lyric sidecars already exist"
     loud "      --delay SECONDS    Delay between LRCLIB requests (default: ${REQUEST_DELAY})"
     loud "  -h, --help             Show this help"
 }
 
 die() {
-    loud "ERROR: $*"
+    printf 'ERROR: %s\n' "$*" >&2
     exit 1
 }
 
@@ -95,6 +101,127 @@ write_nonempty_file() {
     fi
 
     mv -- "${temporary_file}" "${destination_file}"
+}
+
+needs_processing() {
+    local song_file="$1"
+    local song_base="${song_file%.*}"
+    local lrc_file="${song_base}.lrc"
+    local txt_file="${song_base}.txt"
+
+    if (( FORCE == 1 )); then
+        return 0
+    fi
+
+    if [[ -f "${txt_file}" ]]; then
+        return 1
+    fi
+
+    if [[ -f "${lrc_file}" ]]; then
+        return 0
+    fi
+
+    return 0
+}
+
+count_lines() {
+    local file_path="$1"
+
+    [[ -f "${file_path}" ]] || {
+        echo 0
+        return 0
+    }
+
+    awk 'END { print NR + 0 }' "${file_path}"
+}
+
+index_existing_sidecars() {
+    local lyric_file=""
+    local stem=""
+
+    KNOWN_TXT_STEMS=()
+    KNOWN_LRC_STEMS=()
+
+    loud "Indexing existing .txt lyric sidecars under ${MPD_MUSIC_BASE}"
+    while IFS= read -r -d '' lyric_file; do
+        stem="${lyric_file%.*}"
+        KNOWN_TXT_STEMS["${stem}"]=1
+    done < <(
+        find "${MPD_MUSIC_BASE}" -type f -iname '*.txt' -print0
+    )
+
+    loud "Indexing existing .lrc lyric sidecars under ${MPD_MUSIC_BASE}"
+    while IFS= read -r -d '' lyric_file; do
+        stem="${lyric_file%.*}"
+        KNOWN_LRC_STEMS["${stem}"]=1
+    done < <(
+        find "${MPD_MUSIC_BASE}" -type f -iname '*.lrc' -print0
+    )
+}
+
+should_queue_song() {
+    local song_file="$1"
+    local song_base="${song_file%.*}"
+
+    if (( FORCE == 1 )); then
+        return 0
+    fi
+
+    if [[ -n "${KNOWN_TXT_STEMS[${song_base}]+x}" ]]; then
+        return 1
+    fi
+
+    return 0
+}
+
+remove_first_queue_entry() {
+    local queue_file="$1"
+    local song_file="$2"
+    local temp_queue
+
+    [[ -f "${queue_file}" ]] || return 0
+
+    temp_queue="${queue_file}.tmp.$$"
+    awk -v target="${song_file}" '
+        BEGIN { removed = 0 }
+        {
+            if (!removed && $0 == target) {
+                removed = 1
+                next
+            }
+            print
+        }
+    ' "${queue_file}" > "${temp_queue}" && mv -- "${temp_queue}" "${queue_file}"
+}
+
+build_queue_file() {
+    local song_file=""
+
+    loud "Building queue file: ${QUEUE_FILE}"
+    : > "${QUEUE_FILE}"
+
+    while IFS= read -r -d '' song_file; do
+        if should_queue_song "${song_file}" && needs_processing "${song_file}"; then
+            printf '%s\n' "${song_file}" >> "${QUEUE_FILE}"
+        fi
+    done < <(
+        find "${MPD_MUSIC_BASE}" -type f -iname '*.mp3' -print0
+    )
+}
+
+build_work_list() {
+    local output_file="$1"
+    local song_file=""
+
+    : > "${output_file}"
+
+    while IFS= read -r -d '' song_file; do
+        if should_queue_song "${song_file}" && needs_processing "${song_file}"; then
+            printf '%s\n' "${song_file}" >> "${output_file}"
+        fi
+    done < <(
+        find "${MPD_MUSIC_BASE}" -type f -iname '*.mp3' -print0
+    )
 }
 
 ##############################################################################
@@ -346,6 +473,19 @@ process_mp3() {
     loud
     loud "Examining: ${song_file}"
 
+    if [[ -f "${txt_file}" ]]; then
+        if (( FORCE == 1 )); then
+            loud "Plain-text sidecar already exists, but force is enabled: ${txt_file}"
+        else
+            loud "Plain-text sidecar already exists: ${txt_file}; skipping."
+            return 0
+        fi
+    fi
+
+    if [[ -f "${lrc_file}" ]] && (( FORCE == 1 )); then
+        loud "Synchronized sidecar already exists, but force is enabled: ${lrc_file}"
+    fi
+
     if [[ -f "${lrc_file}" ]]; then
         loud "Synchronized sidecar already exists: ${lrc_file}"
     else
@@ -393,6 +533,12 @@ process_mp3() {
     else
         if extract_embedded_plain "${song_file}" "${txt_file}"; then
             loud "Extracted embedded unsynchronized lyrics: ${txt_file}"
+        elif [[ -f "${lrc_file}" ]]; then
+            if write_nonempty_file <(sed 's/^\[[0-9][0-9]*:[0-9][0-9]\([.:][0-9][0-9]*\)\?\][[:space:]]*//g' "${lrc_file}") "${txt_file}"; then
+                loud "Converted synchronized lyrics to plain text: ${txt_file}"
+            else
+                loud "Synchronized lyrics exist, but plain-text conversion produced nothing."
+            fi
         else
             loud "No embedded unsynchronized lyrics found."
         fi
@@ -407,6 +553,9 @@ while (( $# > 0 )); do
     case "$1" in
         -l|--loud|--verbose)
             LOUD=1
+            ;;
+        -f|--force)
+            FORCE=1
             ;;
         -b|--base)
             shift
@@ -440,6 +589,14 @@ done
 
 main() {
     local count=0
+    local song_file=""
+    local using_queue=0
+    local fallback_live_scan=0
+    local queue_total=0
+    local queue_remaining=0
+    local live_list_file=""
+    local live_total=0
+    local live_index=0
 
     require_command exiftool
     require_command curl
@@ -447,6 +604,7 @@ main() {
     require_command find
     require_command sed
     require_command grep
+    require_command awk
 
     [[ -d "${MPD_MUSIC_BASE}" ]] ||
         die "MPD music base does not exist: ${MPD_MUSIC_BASE}"
@@ -458,13 +616,60 @@ main() {
 
     loud "Scanning recursively: ${MPD_MUSIC_BASE}"
     loud "LRCLIB delay: ${REQUEST_DELAY}s"
+    loud "Queue file: ${QUEUE_FILE}"
+    loud "Force mode: ${FORCE}"
 
-    while IFS= read -r -d '' song_file; do
-        process_mp3 "${song_file}"
-        ((count++))
-    done < <(
-        find "${MPD_MUSIC_BASE}" -type f -iname '*.mp3' -print0
-    )
+    if (( FORCE == 0 )); then
+        index_existing_sidecars
+    else
+        loud "Skipping initial sidecar index because force mode is enabled."
+    fi
+
+    if [[ -f "${QUEUE_FILE}" ]]; then
+        using_queue=1
+        loud "Using existing queue file."
+    else
+        build_queue_file
+        using_queue=1
+    fi
+
+    if (( using_queue == 1 )); then
+        queue_total=$(count_lines "${QUEUE_FILE}")
+        loud "Queue contains ${queue_total} file(s) needing work."
+
+        while [[ -f "${QUEUE_FILE}" ]]; do
+            song_file=$(head -n 1 "${QUEUE_FILE}")
+            [[ -n "${song_file}" ]] || break
+            queue_remaining=$(count_lines "${QUEUE_FILE}")
+            loud "Progress [queue]: $(( queue_total - queue_remaining + 1 ))/${queue_total} (${queue_remaining} remaining including current)"
+
+            process_mp3 "${song_file}"
+            remove_first_queue_entry "${QUEUE_FILE}" "${song_file}"
+            ((count++))
+        done
+
+        if [[ ! -f "${QUEUE_FILE}" ]]; then
+            loud "Queue file was deleted; falling back to live scan."
+            fallback_live_scan=1
+        elif [[ ! -s "${QUEUE_FILE}" ]]; then
+            rm -f -- "${QUEUE_FILE}"
+            loud "Queue file exhausted and removed."
+        fi
+    fi
+
+    if (( fallback_live_scan == 1 )); then
+        live_list_file="${LYRICTMP}/live-scan.queue"
+        build_work_list "${live_list_file}"
+        live_total=$(count_lines "${live_list_file}")
+
+        while IFS= read -r song_file; do
+            [[ -n "${song_file}" ]] || continue
+            ((live_index++))
+            loud "Progress [live scan]: ${live_index}/${live_total}"
+            process_mp3 "${song_file}"
+            ((count++))
+        done < "${live_list_file}"
+    fi
 
     loud
     loud "Finished. Examined ${count} MP3 file(s)."
