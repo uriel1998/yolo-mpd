@@ -35,7 +35,11 @@ find_playing_song (){
     IF_URL=0
     SONGFILE=""
     SONGSTRING=""
-    aud_status=$(audtool playback-status)
+    if command -v audtool >/dev/null 2>&1; then
+        aud_status=$(audtool playback-status)
+    else
+        aud_status=""
+    fi
     if [ "${aud_status}" == "playing" ];then
         SONGSTRING=$(audtool current-song)
         SONGFILE=$(audtool current-song-filename)
@@ -48,7 +52,7 @@ find_playing_song (){
             artist=$(echo "${bob}" | grep ":artist:" | cut -d ' ' -f 2-)
             title=$(echo "${bob}" | grep ":title:" | cut -d ' ' -f 2-)
             coverurl=$(echo "${bob}" | grep ":artUrl:" | cut -d '/' -f 3- )
-            IF_URL==$(echo "${bob}" | grep ":url:" | grep -c "http")
+            IF_URL=$(echo "${bob}" | grep ":url:" | grep -c "http")
             if [ "$IF_URL" == "0" ];then
                 SONGFILE=$(echo "${bob}" | grep ":url:" | cut -d '/' -f 3-)
             else
@@ -73,7 +77,7 @@ find_playing_song (){
             artist=$(echo "${bob}" | grep ":artist:" | cut -d ' ' -f 2-)
             title=$(echo "${bob}" | grep ":title:" | cut -d ' ' -f 2-)
             coverurl=$(echo "${bob}" | grep ":artUrl:" | cut -d '/' -f 3- )
-            IF_URL==$(echo "${bob}" | grep ":url:" | grep -c "http")
+            IF_URL=$(echo "${bob}" | grep ":url:" | grep -c "http")
             if [ "$IF_URL" == "0" ];then
                 SONGFILE=$(echo "${bob}" | grep ":url:" | cut -d '/' -f 3-)
             else
@@ -98,7 +102,7 @@ find_playing_song (){
             artist=$(echo "${bob}" | grep ":artist:" | cut -d ' ' -f 2-)
             title=$(echo "${bob}" | grep ":title:" | cut -d ' ' -f 2-)
             coverurl=$(echo "${bob}" | grep ":artUrl:" | cut -d '/' -f 3- )
-            IF_URL==$(echo "${bob}" | grep ":url:" | grep -c "http")
+            IF_URL=$(echo "${bob}" | grep ":url:" | grep -c "http")
             if [ "$IF_URL" == "0" ];then
                 SONGFILE=$(echo "${bob}" | grep ":url:" | cut -d '/' -f 3-)
             else
@@ -122,12 +126,12 @@ find_playing_song (){
         if [ "$MPD_HOST" == "" ];then
             export MPD_HOST=$(cat ${HOME}/.bashrc | grep MPD_HOST | awk -F '=' '{print $2}')
         fi
-        status=$(mpc | grep -c -e "\[")
+        status=$(mpc --host "$MPD_HOST" | grep -c -e "\[")
         if [ $status -lt 1 ];then
             echo "Not playing or paused"            
         else
-            SONGFILE="${MPD_MUSIC_BASE}"/$(mpc current --format %file%)
-            SONGSTRING=$(mpc current --format "%artist% - %album% - %title%")
+            SONGFILE="${MPD_MUSIC_BASE}"/$(mpc --host "$MPD_HOST" current --format %file%)
+            SONGSTRING=$(mpc --host "$MPD_HOST" current --format "%artist% - %album% - %title%")
         fi
     fi
 

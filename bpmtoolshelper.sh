@@ -5,6 +5,8 @@
 # tags with BPM but also preserves file date
 ########################################################################
 Quiet=0
+SaveExisting=0
+SkipExisting=0
 
 if [[ "$@" =~ "--save" ]]; then
     SaveExisting=1
@@ -27,18 +29,19 @@ startdir="$PWD"
 # find is not used here so that both operations can be done and so that
 # the whole operation doesn't die if mp3gain throws an error ungracefully
 
-IFS=$'\n'
 watchcount=0
-for f in $(find "${startdir}/" -name '*.mp3' );do 
+while IFS= read -r -d '' f; do 
     
     if [ $Quiet = 0 ]; then
         echo "Analyzing ${f}"
     fi
     re='^[0-9]+$'
-    existingbpm=`eyeD3  "${f}" 2>/dev/null  | grep BPM | awk -F ':' '{ print $2 }' | awk '{print $2}'`
+    existingbpm=$(eyeD3 "${f}" 2>/dev/null | grep BPM | awk -F ':' '{ print $2 }' | awk '{print $2}')
     if ! [[ $existingbpm =~ $re ]] && [[ "$existingbpm" != "" ]]; then
         echo "Existing BPM jacked up!!" >&2
-    elif [ $SkipExisting = 0 ];then
+    elif [ "$SkipExisting" = 1 ] && [[ $existingbpm =~ $re ]]; then
+        continue
+    else
         if [ $watchcount -gt 3 ];then
             wait
             watchcount=0
@@ -51,7 +54,7 @@ for f in $(find "${startdir}/" -name '*.mp3' );do
             echo "No valid BPM detected!" >&2
         else
             if [ $SaveExisting = 1 ];then
-                if [[ "$bmptemp" =~ "$existingbpm" ]];then
+                if [[ -n "${existingbpm}" ]] && [[ "${bpmtemp}" != "${existingbpm}" ]];then
                     echo "Warning: BPMs differ for ${f}!"
                 fi
             else
@@ -62,6 +65,5 @@ for f in $(find "${startdir}/" -name '*.mp3' );do
         ) &
     fi
 
-done
+done < <(find "${startdir}/" -name '*.mp3' -print0)
 wait
-unset IFS

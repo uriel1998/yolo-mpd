@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-export PLAYLISTS=/home/steven/Documents/Playlists/Clementine
-export FORMPD=/home/steven/Documents/Playlists/mpd
+PLAYLISTS="${PLAYLISTS:-/home/steven/Documents/Playlists/Clementine}"
+FORMPD="${FORMPD:-/home/steven/Documents/Playlists/mpd}"
 
 # Ensure both environment variables are set
 if [[ -z "$PLAYLISTS" || -z "$FORMPD" ]]; then
@@ -16,6 +16,7 @@ if [[ ! -d "$PLAYLISTS" || ! -d "$FORMPD" ]]; then
 fi
 
 # Loop through all files in $PLAYLISTS
+shopt -s nullglob
 for file in "$PLAYLISTS"/*.m3u; do
     filename=$(basename "$file")
     target="$FORMPD/$filename"
@@ -28,3 +29,4 @@ for file in "$PLAYLISTS"/*.m3u; do
         fi
     fi
 done
+shopt -u nullglob

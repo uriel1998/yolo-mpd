@@ -32,11 +32,11 @@ show_help() {
 
 URL=""
 InvokedOpts="${@}"
+BookMarks="False"
+HostString=""
 
-
-for arg in "$@" 
-do
-    case "$arg" in 
+while [ $# -gt 0 ]; do
+    case "$1" in 
         "--help" | "-h" )
             show_help
             exit
@@ -51,19 +51,36 @@ do
             ;;        
         "--bookmarks")
             BookMarks="True"
+            shift
             ;;
         "--host")
-            HostString="--host ${2}"
+            if [ $# -lt 2 ]; then
+                echo "--host requires a value" >&2
+                exit 1
+            fi
+            HostString="--host $2"
             shift
             shift
             ;;
         "--native")
             OutPut="Local"
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+        -*)
+            echo "Unknown option: $1" >&2
+            exit 1
+            ;;
+        *)
+            break
             ;;
     esac
 done
 
-InvokedOpts="${@}"
+InvokedOpts="$1"
 
 if [ -z "${OutPut}" ];then 
     OutPut=$(zenity  --list  --text "Where to send the stream to?" --checklist  --column "Pick" --column "options" TRUE "Local" FALSE "MPD" FALSE "Playlist" --separator=":")
@@ -82,17 +99,16 @@ if [ "$StreamLink" != "0" ];then
         *x-mpegurl*|*x-scpls*)  # playlists
             echo "${MimeType}"
             TempFile=$(mktemp)
-            EvalString=$(printf "/usr/bin/wget \"%s\" -O %s" "${InvokedOpts}" "${TempFile}")
-            eval "${EvalString}"
+            /usr/bin/wget "${InvokedOpts}" -O "${TempFile}"
             # find matches with File[0-9]=(.*) in pls files
             URL=$(/usr/bin/grep -m 1 -e "^File.*" "${TempFile}" | awk -F '=' '{print $2}')
-            if [ -z $URL ];then
+            if [ -z "${URL}" ];then
                 # find matches with ^http.*mp3$ in m3u files
                 URL=$(/usr/bin/grep -m 1 -e "^http.*mp3??*" "${TempFile}")
-                if [ -z $URL ];then
+                if [ -z "${URL}" ];then
                     # find matches with ^http.*ogg$ in m3u files
                     URL=$(/usr/bin/grep -m 1 -e "^http.*ogg??*" "${TempFile}")
-                    if [ -z $URL ];then
+                    if [ -z "${URL}" ];then
                         # find matches with ^http.*aac$ in m3u files
                         URL=$(/usr/bin/grep -m 1 -e "^http.*aac??*" "${TempFile}")
                     fi
@@ -112,7 +128,7 @@ if [ -n "${URL}" ];then
     case "${OutPut}" in 
         *Local*) 
             # Passing to regular streamlink
-            /usr/bin/streamlink "${URL}" 
+            /usr/bin/streamlink "${InvokedOpts}" audio_only
             ;;
         *MPD*) 
             mpc ${HostString} insert "${URL}"            
@@ -127,4 +143,3 @@ if [ -n "${URL}" ];then
 else
     echo "No valid URL parsed or direct stream found."
 fi
-
