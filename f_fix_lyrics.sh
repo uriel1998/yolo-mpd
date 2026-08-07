@@ -21,6 +21,7 @@ FORCE=0
 LRCLIB_API="https://lrclib.net/api"
 LRCLIB_USER_AGENT="f_fix_lyrics/1.0 (local personal music-library tool)"
 LYRICTMP=""
+LAST_API_REQUEST_EPOCH=""
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 # This queue persists across runs so an interrupted scan can resume where it
 # left off instead of rebuilding state from scratch every time.
@@ -382,12 +383,35 @@ lrclib_request() {
     local attempt=1
     local status=""
     local retry_after=""
+    local now_epoch=""
+    local wait_time=""
 
     # Centralize LRCLIB retry and pacing logic so exact and search queries use
     # identical transport behavior.
     while (( attempt <= MAX_RETRIES )); do
         : > "${body_file}"
         : > "${header_file}"
+
+        # Throttle only when another API request is actually about to happen.
+        # This avoids pointless sleeps after the final request for a track.
+        if [[ -n "${LAST_API_REQUEST_EPOCH}" ]]; then
+            now_epoch=$(date +%s.%N)
+            wait_time=$(
+                awk -v now="${now_epoch}" -v last="${LAST_API_REQUEST_EPOCH}" -v delay="${REQUEST_DELAY}" '
+                    BEGIN {
+                        remaining = delay - (now - last)
+                        if (remaining > 0) {
+                            printf "%.3f\n", remaining
+                        } else {
+                            print "0"
+                        }
+                    }
+                '
+            )
+            if [[ "${wait_time}" != "0" && "${wait_time}" != "0.000" ]]; then
+                sleep "${wait_time}"
+            fi
+        fi
 
         status=$(
             curl --silent --show-error \
@@ -400,19 +424,18 @@ lrclib_request() {
                 --get "${LRCLIB_API}/${endpoint}" \
                 "$@" 2>/dev/null
         ) || status="000"
+        LAST_API_REQUEST_EPOCH=$(date +%s.%N)
 
         case "${status}" in
             200)
                 # Emit the successful body on stdout so callers can redirect it
                 # straight into the temp file they want to inspect.
                 cat "${body_file}"
-                sleep "${REQUEST_DELAY}"
                 return 0
                 ;;
             404)
                 # "Not found" is terminal for this exact request, but still not
                 # treated as a script-level failure.
-                sleep "${REQUEST_DELAY}"
                 return 4
                 ;;
             429)
@@ -428,15 +451,16 @@ lrclib_request() {
                 [[ "${retry_after}" =~ ^[0-9]+$ ]] || retry_after=$(( attempt * 3 ))
                 loud "LRCLIB rate limit reached; retrying after ${retry_after}s."
                 sleep "${retry_after}"
+                LAST_API_REQUEST_EPOCH=""
                 ;;
             500|502|503|504|000)
                 # Retry transient server and transport failures with backoff.
                 loud "LRCLIB request failed with HTTP ${status}; retry ${attempt}/${MAX_RETRIES}."
                 sleep $(( attempt * 3 ))
+                LAST_API_REQUEST_EPOCH=""
                 ;;
             *)
                 loud "LRCLIB returned HTTP ${status}; not retrying."
-                sleep "${REQUEST_DELAY}"
                 return 1
                 ;;
         esac
