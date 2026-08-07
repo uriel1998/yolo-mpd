@@ -223,24 +223,7 @@ function create_labeled_preview() {
         -pointsize 18 \
         -undercolor '#111111cc' \
         -annotate +0+8 "${overlay_text}" \
-        "${preview_file}" 2>/dev/nuUsing this as a base and styleguide: 
-
-- Have loud output on stderr. 
-- Have all output go to loud.
-- have a command-line switch for loud.
-
-- have the script
-
-1. recursively walk MPD_MUSIC_BASE
-2. examine if there is an .lrc file for each MP3.
-	if there is, skip to step 3
-	if not:
-	2a. If not, use the track's metadata to query lrclib for a match of track, album, artist, and duration.  Use the ratelimiting and fallback on errors mentioned above.
-	2a1. If a good match is found, download it.  If all match save for duration, download it.  Save in the music directory.
-	2a2. If a good match is not found, see if there are synchronized lyrics embedded in the text file.  If so, extract them to .lrc, otherwise move to step 3.
-3. If there is a .txt matching the MP3 with lyrics, skip to step 4.
-	3a. See if there are unsynchronized lyrics embedded in the MP3.  
-	3a1. If so, save as .txt in the directoryll; then
+        "${preview_file}" 2>/dev/null; then
         echo "${preview_file}"
         return 0
     fi
