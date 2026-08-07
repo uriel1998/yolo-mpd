@@ -47,6 +47,7 @@ The repository also now carries annotated `v0.9.x` Git tags for major project mi
 * `v0.9.26` `41c0f8f`: Fixed remaining root helper-script issues.
 * `v0.9.27` `749cf0f`: Reorganized and expanded the README.
 * `v0.9.28` `b9f5bb8`: Added this tool-oriented changelog.
+* `v0.9.29` `current`: Added `snapmixer.py` and documented it in the repository docs.
 
 ## Repository, documentation, and structure
 
@@ -214,6 +215,10 @@ The repository also now carries annotated `v0.9.x` Git tags for major project mi
 
 * `[added]` `3c86923`: Added simpler mediakey control variant.
 * `[fix]` `692e93d`: Fixed empty-player handling, optional player selection, MPD state checks, and play/pause behavior.
+
+## `snapmixer.py`
+
+* `[added]` `unreleased`: Added a curses-based Snapcast client mixer with per-client volume, mute, refresh, and host/port override support.
 
 ## `mp3gainhelper.sh`
 

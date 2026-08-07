@@ -28,6 +28,7 @@ This README documents every Bash script in the repository root. Legacy scripts t
 
 * `mediakey.sh`: Send play/pause/next/previous/stop actions through MPRIS with optional player targeting.
 * `mediakey_no_checking.sh`: Faster mediakey variant with lighter player checks but the same action model.
+* `snapmixer.py`: Terminal Snapcast client mixer for per-client volume and mute control.
 * `nowplaying_to_maubot.sh`: Build a composite “now playing” image, set the desktop background, and post the current track to Maubot.
 
 ### Streaming, playlists, and cover export
@@ -382,6 +383,29 @@ Dependencies:
 * `wget`
 * `feh`
 * `imagemagick`
+
+### `snapmixer.py`
+
+Shows a minimal curses-based mixer for connected Snapcast clients over Snapcast's JSON-RPC TCP interface.
+
+Behavior:
+
+* Lists connected clients sorted by group and client name.
+* Adjusts per-client volume with vim-style or arrow-key navigation.
+* Supports absolute volume presets with `` ` `` and `0` through `9`.
+* Toggles mute per client and can refresh the client list without restarting.
+* Connects to the Snapcast server on `127.0.0.1:1705` by default, with host, port, and timeout overrides.
+
+Usage:
+
+```bash
+./snapmixer.py [--host HOST] [--port PORT] [--timeout SECONDS]
+```
+
+Dependencies:
+
+* `python3`
+* Python standard library modules: `argparse`, `curses`, `json`, `socket`, `textwrap`
 
 ### `stream_to_mpd.sh`
 
