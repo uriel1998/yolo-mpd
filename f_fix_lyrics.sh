@@ -11,6 +11,8 @@
 set -u
 set -o pipefail
 
+# Runtime configuration. The script defaults to incremental behavior and only
+# broadens scope when `--force` is explicitly requested.
 MPD_MUSIC_BASE="${MPD_MUSIC_BASE:-${HOME}/Music}"
 LOUD=0
 REQUEST_DELAY="0.5"
@@ -20,7 +22,11 @@ LRCLIB_API="https://lrclib.net/api"
 LRCLIB_USER_AGENT="f_fix_lyrics/1.0 (local personal music-library tool)"
 LYRICTMP=""
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+# This queue persists across runs so an interrupted scan can resume where it
+# left off instead of rebuilding state from scratch every time.
 QUEUE_FILE="${SCRIPT_DIR}/f_fix_lyrics.queue"
+# These indexes are built once at startup to cheaply prune files that already
+# have lyric sidecars before the script touches individual MP3 metadata.
 declare -A KNOWN_TXT_STEMS=()
 declare -A KNOWN_LRC_STEMS=()
 
@@ -29,6 +35,8 @@ declare -A KNOWN_LRC_STEMS=()
 ##############################################################################
 
 loud() {
+    # Diagnostic output stays on stderr so stdout can remain clean if the
+    # script is ever wrapped or consumed by another tool.
     if (( LOUD == 1 )); then
         printf '%s\n' "$*" >&2
     fi
@@ -53,6 +61,8 @@ die() {
 }
 
 cleanup() {
+    # Temporary state is disposable; the persistent queue file is intentionally
+    # left alone because it is part of the resume mechanism.
     [[ -n "${LYRICTMP}" ]] && rm -rf -- "${LYRICTMP}"
 }
 
@@ -83,6 +93,8 @@ normalize() {
 }
 
 has_lrc_timestamps() {
+    # LRC lines begin with timestamps like `[01:23.45]`; this keeps synced and
+    # plain lyrics from being mixed up later in the pipeline.
     grep -Eq '^\[[0-9]{1,3}:[0-9]{2}([.:][0-9]{1,3})?\]' "$1"
 }
 
@@ -91,8 +103,10 @@ write_nonempty_file() {
     local destination_file="$2"
     local temporary_file="${destination_file}.tmp.$$"
 
+    # Refuse to overwrite a destination with an empty extraction result.
     [[ -s "${source_file}" ]] || return 1
 
+    # Normalize CRLF while staging, then replace the real file atomically.
     sed 's/\r$//' "${source_file}" > "${temporary_file}"
 
     if [[ ! -s "${temporary_file}" ]]; then
@@ -109,18 +123,23 @@ needs_processing() {
     local lrc_file="${song_base}.lrc"
     local txt_file="${song_base}.txt"
 
+    # Force mode intentionally reconsiders every MP3 regardless of sidecars.
     if (( FORCE == 1 )); then
         return 0
     fi
 
+    # A `.txt` means the track already has the final plain-lyrics artifact this
+    # script wants, so the file does not need to stay in the work set.
     if [[ -f "${txt_file}" ]]; then
         return 1
     fi
 
+    # A lone `.lrc` is still actionable because we can derive `.txt` from it.
     if [[ -f "${lrc_file}" ]]; then
         return 0
     fi
 
+    # No sidecars exist, so the track remains a candidate for all lookup paths.
     return 0
 }
 
@@ -142,6 +161,8 @@ index_existing_sidecars() {
     KNOWN_TXT_STEMS=()
     KNOWN_LRC_STEMS=()
 
+    # Pre-indexing sidecars front-loads the cost of `find` once and avoids many
+    # repeated filesystem checks during queue construction.
     loud "Indexing existing .txt lyric sidecars under ${MPD_MUSIC_BASE}"
     while IFS= read -r -d '' lyric_file; do
         stem="${lyric_file%.*}"
@@ -167,6 +188,8 @@ should_queue_song() {
         return 0
     fi
 
+    # If a matching `.txt` already exists, the MP3 is complete enough to skip
+    # before we do any per-file work.
     if [[ -n "${KNOWN_TXT_STEMS[${song_base}]+x}" ]]; then
         return 1
     fi
@@ -182,6 +205,8 @@ remove_first_queue_entry() {
     [[ -f "${queue_file}" ]] || return 0
 
     temp_queue="${queue_file}.tmp.$$"
+    # Remove only the first matching queue item so duplicate paths, while not
+    # expected, still preserve stable resume semantics.
     awk -v target="${song_file}" '
         BEGIN { removed = 0 }
         {
@@ -200,6 +225,7 @@ build_queue_file() {
     loud "Building queue file: ${QUEUE_FILE}"
     : > "${QUEUE_FILE}"
 
+    # The persistent queue only stores work that is still relevant right now.
     while IFS= read -r -d '' song_file; do
         if should_queue_song "${song_file}" && needs_processing "${song_file}"; then
             printf '%s\n' "${song_file}" >> "${QUEUE_FILE}"
@@ -215,6 +241,8 @@ build_work_list() {
 
     : > "${output_file}"
 
+    # This mirrors queue filtering for the live-scan fallback path used only if
+    # the persisted queue is deleted during a run.
     while IFS= read -r -d '' song_file; do
         if should_queue_song "${song_file}" && needs_processing "${song_file}"; then
             printf '%s\n' "${song_file}" >> "${output_file}"
@@ -231,6 +259,8 @@ build_work_list() {
 read_metadata() {
     local song_file="$1"
 
+    # ExifTool handles mixed tag formats reliably; jq normalizes the shape into
+    # a compact object with a rounded duration in seconds.
     exiftool -j -charset ID3=UTF8 \
         -Title -Artist -Album -Duration# \
         -- "${song_file}" 2>/dev/null |
@@ -247,6 +277,7 @@ extract_embedded_synced() {
     local output_file="$2"
     local extracted="${LYRICTMP}/embedded-synced"
 
+    # Reuse one temp file and try the most specific synced-lyrics tags first.
     : > "${extracted}"
 
     # Native ID3 SYLT frame. ExifTool prefixes each item with an LRC-like
@@ -260,6 +291,8 @@ extract_embedded_synced() {
         return
     fi
 
+    # Some taggers misuse the generic Lyrics field for timestamped LRC data, so
+    # accept it only if it actually looks synchronized.
     # Some tagging programs put timestamped LRC content in USLT/Lyrics.
     exiftool -b -charset ID3=UTF8 \
         -Lyrics \
@@ -282,6 +315,7 @@ extract_embedded_plain() {
         -Lyrics \
         -- "${song_file}" > "${extracted}" 2>/dev/null || true
 
+    # If there is no embedded lyric payload at all, stop quickly.
     [[ -s "${extracted}" ]] || return 1
 
     # Timestamped content belongs in .lrc, never in the plain-text sidecar.
@@ -304,6 +338,8 @@ lrclib_request() {
     local status=""
     local retry_after=""
 
+    # Centralize LRCLIB retry and pacing logic so exact and search queries use
+    # identical transport behavior.
     while (( attempt <= MAX_RETRIES )); do
         : > "${body_file}"
         : > "${header_file}"
@@ -322,15 +358,20 @@ lrclib_request() {
 
         case "${status}" in
             200)
+                # Emit the successful body on stdout so callers can redirect it
+                # straight into the temp file they want to inspect.
                 cat "${body_file}"
                 sleep "${REQUEST_DELAY}"
                 return 0
                 ;;
             404)
+                # "Not found" is terminal for this exact request, but still not
+                # treated as a script-level failure.
                 sleep "${REQUEST_DELAY}"
                 return 4
                 ;;
             429)
+                # Respect server-advertised pacing when present.
                 retry_after=$(
                     awk 'BEGIN{IGNORECASE=1}
                          /^Retry-After:/ {
@@ -344,6 +385,7 @@ lrclib_request() {
                 sleep "${retry_after}"
                 ;;
             500|502|503|504|000)
+                # Retry transient server and transport failures with backoff.
                 loud "LRCLIB request failed with HTTP ${status}; retry ${attempt}/${MAX_RETRIES}."
                 sleep $(( attempt * 3 ))
                 ;;
@@ -368,6 +410,7 @@ save_lrclib_result() {
     local synced_file="${LYRICTMP}/lrclib-synced"
     local plain_file="${LYRICTMP}/lrclib-plain"
 
+    # Prefer synchronized lyrics when the API provides them.
     jq -r '.syncedLyrics // empty' "${response_file}" > "${synced_file}"
     if [[ -s "${synced_file}" ]]; then
         write_nonempty_file "${synced_file}" "${lrc_file}"
@@ -401,6 +444,8 @@ query_lrclib() {
 
     : > "${response}"
 
+    # Start with the exact endpoint because duration-aware matches are the most
+    # trustworthy result LRCLIB can return.
     # First try LRCLIB's exact-signature endpoint.
     if lrclib_request get \
         --data-urlencode "track_name=${title}" \
@@ -450,6 +495,7 @@ query_lrclib() {
         return 1
     fi
 
+    # If text metadata matches cleanly, duration drift is acceptable.
     loud "LRCLIB metadata match found; accepting duration mismatch."
     save_lrclib_result "${selected}" "${lrc_file}" "${txt_file}"
 }
@@ -473,6 +519,7 @@ process_mp3() {
     loud
     loud "Examining: ${song_file}"
 
+    # Without `--force`, an existing plain-text sidecar means the track is done.
     if [[ -f "${txt_file}" ]]; then
         if (( FORCE == 1 )); then
             loud "Plain-text sidecar already exists, but force is enabled: ${txt_file}"
@@ -487,6 +534,8 @@ process_mp3() {
     fi
 
     if [[ -f "${lrc_file}" ]]; then
+        # Existing synced lyrics suppress LRCLIB and synced-tag extraction, but
+        # the file may still need `.txt` generated from the `.lrc`.
         loud "Synchronized sidecar already exists: ${lrc_file}"
     else
         metadata=$(read_metadata "${song_file}") || metadata=""
@@ -499,6 +548,8 @@ process_mp3() {
 
             loud "Metadata: artist='${artist}' title='${title}' album='${album}' duration=${duration}s"
 
+            # Only query LRCLIB when the metadata is specific enough to be
+            # useful and duration is available.
             if [[ -n "${title}" && -n "${artist}" && -n "${album}" &&
                   "${duration}" =~ ^[0-9]+$ && "${duration}" -gt 0 ]]; then
                 if query_lrclib \
@@ -520,6 +571,8 @@ process_mp3() {
         fi
 
         if [[ ! -f "${lrc_file}" ]]; then
+            # Embedded synced lyrics are the local fallback when LRCLIB did not
+            # produce a synchronized result.
             if extract_embedded_synced "${song_file}" "${lrc_file}"; then
                 loud "Extracted embedded synchronized lyrics: ${lrc_file}"
             else
@@ -531,9 +584,12 @@ process_mp3() {
     if [[ -f "${txt_file}" ]]; then
         loud "Plain-text sidecar already exists: ${txt_file}"
     else
+        # Prefer a true unsynced embedded lyric payload if one exists.
         if extract_embedded_plain "${song_file}" "${txt_file}"; then
             loud "Extracted embedded unsynchronized lyrics: ${txt_file}"
         elif [[ -f "${lrc_file}" ]]; then
+            # If we only have synced lyrics, strip timestamps to produce the
+            # missing plain-text sidecar rather than leaving the track partial.
             if write_nonempty_file <(sed 's/^\[[0-9][0-9]*:[0-9][0-9]\([.:][0-9][0-9]*\)\?\][[:space:]]*//g' "${lrc_file}") "${txt_file}"; then
                 loud "Converted synchronized lyrics to plain text: ${txt_file}"
             else
@@ -549,6 +605,8 @@ process_mp3() {
 # Command-line parsing
 ##############################################################################
 
+# Keep parsing simple and explicit: mutate globals in place, then let `main`
+# consume the finalized runtime configuration.
 while (( $# > 0 )); do
     case "$1" in
         -l|--loud|--verbose)
@@ -606,6 +664,8 @@ main() {
     require_command grep
     require_command awk
 
+    # Fail early on obviously bad runtime configuration before building queue
+    # state or touching the library.
     [[ -d "${MPD_MUSIC_BASE}" ]] ||
         die "MPD music base does not exist: ${MPD_MUSIC_BASE}"
 
@@ -620,15 +680,19 @@ main() {
     loud "Force mode: ${FORCE}"
 
     if (( FORCE == 0 )); then
+        # In normal mode, pre-index sidecars first so queue construction can
+        # skip already-satisfied tracks with a cheap stem lookup.
         index_existing_sidecars
     else
         loud "Skipping initial sidecar index because force mode is enabled."
     fi
 
     if [[ -f "${QUEUE_FILE}" ]]; then
+        # Existing queue means a prior run left resumable state behind.
         using_queue=1
         loud "Using existing queue file."
     else
+        # No queue means either first run or a previously completed run.
         build_queue_file
         using_queue=1
     fi
@@ -638,20 +702,26 @@ main() {
         loud "Queue contains ${queue_total} file(s) needing work."
 
         while [[ -f "${QUEUE_FILE}" ]]; do
+            # Read the current head before mutating the queue so interrupts leave
+            # the active file in place for the next invocation.
             song_file=$(head -n 1 "${QUEUE_FILE}")
             [[ -n "${song_file}" ]] || break
             queue_remaining=$(count_lines "${QUEUE_FILE}")
             loud "Progress [queue]: $(( queue_total - queue_remaining + 1 ))/${queue_total} (${queue_remaining} remaining including current)"
 
             process_mp3 "${song_file}"
+            # Only drop a queue item after its processing path returned.
             remove_first_queue_entry "${QUEUE_FILE}" "${song_file}"
             ((count++))
         done
 
         if [[ ! -f "${QUEUE_FILE}" ]]; then
+            # Deleting the queue during runtime is treated as an operator choice
+            # to abandon persisted state and continue against a fresh live view.
             loud "Queue file was deleted; falling back to live scan."
             fallback_live_scan=1
         elif [[ ! -s "${QUEUE_FILE}" ]]; then
+            # Empty queue is the normal completed state, so remove it.
             rm -f -- "${QUEUE_FILE}"
             loud "Queue file exhausted and removed."
         fi
@@ -659,6 +729,8 @@ main() {
 
     if (( fallback_live_scan == 1 )); then
         live_list_file="${LYRICTMP}/live-scan.queue"
+        # This fallback list is ephemeral on purpose; only the main queue is
+        # durable across runs.
         build_work_list "${live_list_file}"
         live_total=$(count_lines "${live_list_file}")
 
