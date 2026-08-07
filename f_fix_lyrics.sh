@@ -128,18 +128,11 @@ needs_processing() {
         return 0
     fi
 
-    # A `.txt` means the track already has the final plain-lyrics artifact this
-    # script wants, so the file does not need to stay in the work set.
-    if [[ -f "${txt_file}" ]]; then
+    # Only skip fully satisfied tracks. If either sidecar is missing, the track
+    # still has remaining work.
+    if [[ -f "${txt_file}" && -f "${lrc_file}" ]]; then
         return 1
     fi
-
-    # A lone `.lrc` is still actionable because we can derive `.txt` from it.
-    if [[ -f "${lrc_file}" ]]; then
-        return 0
-    fi
-
-    # No sidecars exist, so the track remains a candidate for all lookup paths.
     return 0
 }
 
@@ -152,6 +145,45 @@ count_lines() {
     }
 
     awk 'END { print NR + 0 }' "${file_path}"
+}
+
+count_pending_operations() {
+    local song_file="$1"
+    local song_base="${song_file%.*}"
+    local lrc_file="${song_base}.lrc"
+    local txt_file="${song_base}.txt"
+    local operations=0
+
+    # Force mode rechecks both artifacts for every track in scope.
+    if (( FORCE == 1 )); then
+        echo 2
+        return 0
+    fi
+
+    [[ -f "${lrc_file}" ]] || ((operations++))
+    [[ -f "${txt_file}" ]] || ((operations++))
+
+    echo "${operations}"
+}
+
+count_operations_in_list() {
+    local list_file="$1"
+    local song_file=""
+    local total=0
+    local operations=0
+
+    [[ -f "${list_file}" ]] || {
+        echo 0
+        return 0
+    }
+
+    while IFS= read -r song_file; do
+        [[ -n "${song_file}" ]] || continue
+        operations=$(count_pending_operations "${song_file}")
+        ((total += operations))
+    done < "${list_file}"
+
+    echo "${total}"
 }
 
 index_existing_sidecars() {
@@ -188,9 +220,9 @@ should_queue_song() {
         return 0
     fi
 
-    # If a matching `.txt` already exists, the MP3 is complete enough to skip
-    # before we do any per-file work.
-    if [[ -n "${KNOWN_TXT_STEMS[${song_base}]+x}" ]]; then
+    # Skip only when both sidecar forms already exist for the same stem.
+    if [[ -n "${KNOWN_TXT_STEMS[${song_base}]+x}" &&
+          -n "${KNOWN_LRC_STEMS[${song_base}]+x}" ]]; then
         return 1
     fi
 
@@ -519,13 +551,13 @@ process_mp3() {
     loud
     loud "Examining: ${song_file}"
 
-    # Without `--force`, an existing plain-text sidecar means the track is done.
+    # Existing plain lyrics only suppress `.txt` creation work; the track may
+    # still need a missing `.lrc` unless both artifacts are already present.
     if [[ -f "${txt_file}" ]]; then
         if (( FORCE == 1 )); then
             loud "Plain-text sidecar already exists, but force is enabled: ${txt_file}"
         else
-            loud "Plain-text sidecar already exists: ${txt_file}; skipping."
-            return 0
+            loud "Plain-text sidecar already exists: ${txt_file}"
         fi
     fi
 
@@ -581,7 +613,7 @@ process_mp3() {
         fi
     fi
 
-    if [[ -f "${txt_file}" ]]; then
+    if [[ -f "${txt_file}" ]] && (( FORCE == 0 )); then
         loud "Plain-text sidecar already exists: ${txt_file}"
     else
         # Prefer a true unsynced embedded lyric payload if one exists.
@@ -647,6 +679,8 @@ done
 
 main() {
     local count=0
+    local completed_operations=0
+    local song_operations=0
     local song_file=""
     local using_queue=0
     local fallback_live_scan=0
@@ -698,20 +732,22 @@ main() {
     fi
 
     if (( using_queue == 1 )); then
-        queue_total=$(count_lines "${QUEUE_FILE}")
-        loud "Queue contains ${queue_total} file(s) needing work."
+        queue_total=$(count_operations_in_list "${QUEUE_FILE}")
+        loud "Queue contains ${queue_total} lyric operation(s) needing work."
 
         while [[ -f "${QUEUE_FILE}" ]]; do
             # Read the current head before mutating the queue so interrupts leave
             # the active file in place for the next invocation.
             song_file=$(head -n 1 "${QUEUE_FILE}")
             [[ -n "${song_file}" ]] || break
-            queue_remaining=$(count_lines "${QUEUE_FILE}")
-            loud "Progress [queue]: $(( queue_total - queue_remaining + 1 ))/${queue_total} (${queue_remaining} remaining including current)"
+            queue_remaining=$(count_operations_in_list "${QUEUE_FILE}")
+            song_operations=$(count_pending_operations "${song_file}")
+            loud "Progress [queue]: ${completed_operations}/${queue_total} complete; current file has ${song_operations} operation(s); ${queue_remaining} remaining including current"
 
             process_mp3 "${song_file}"
             # Only drop a queue item after its processing path returned.
             remove_first_queue_entry "${QUEUE_FILE}" "${song_file}"
+            ((completed_operations += song_operations))
             ((count++))
         done
 
@@ -732,19 +768,20 @@ main() {
         # This fallback list is ephemeral on purpose; only the main queue is
         # durable across runs.
         build_work_list "${live_list_file}"
-        live_total=$(count_lines "${live_list_file}")
+        live_total=$(count_operations_in_list "${live_list_file}")
 
         while IFS= read -r song_file; do
             [[ -n "${song_file}" ]] || continue
-            ((live_index++))
-            loud "Progress [live scan]: ${live_index}/${live_total}"
+            song_operations=$(count_pending_operations "${song_file}")
+            loud "Progress [live scan]: ${completed_operations}/${live_total} complete; current file has ${song_operations} operation(s)"
             process_mp3 "${song_file}"
+            ((completed_operations += song_operations))
             ((count++))
         done < "${live_list_file}"
     fi
 
     loud
-    loud "Finished. Examined ${count} MP3 file(s)."
+    loud "Finished. Examined ${count} MP3 file(s) across ${completed_operations} lyric operation(s)."
 }
 
 main
