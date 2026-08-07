@@ -10,7 +10,7 @@
 #
 ##############################################################################
 
-YAD_NOTIFY=""
+YAD_NOTIFY=0
 SONGSTRING=""
 SONGFILE=""
 SONGDIR=""
@@ -87,17 +87,17 @@ function show_album_art {
         if [ "$bvalue" -gt 78 ];then
             bvalue=78
         fi
-        if [ -f $(which timg) ];then
+        if command -v timg >/dev/null 2>&1; then
             timg -U -pq "${COVERFILE}"
         else
-            if [ -f $(which jp2a) ];then
+            if command -v jp2a >/dev/null 2>&1; then
                 # if it looks bad, try removing invert
                 jp2a --colors --width=${cols} --invert "${COVERFILE}"
             else
-                if [ -f $(which img2txt.py) ];then
+                if command -v img2txt.py >/dev/null 2>&1; then
                     img2txt.py --ansi --targetAspect=0.5 --maxLen="$bvalue" "${COVERFILE}"
                 else
-                    if [ -f $(which asciiart) ];then
+                    if command -v asciiart >/dev/null 2>&1; then
                         asciiart -c -w "$bvalue" "${COVERFILE}" 
                     else
                         echo "No viewer available on $PATH"
@@ -115,10 +115,12 @@ find_playing_song (){
     IF_URL=0
     SONGFILE=""
     SONGSTRING=""
-    if [[ -f $(which audtool) ]];then 
-		aud_status=$(audtool playback-status)
-	else
-		aud_status=""
+    COVERFILE=""
+    coverurl=""
+    if command -v audtool >/dev/null 2>&1; then 
+			aud_status=$(audtool playback-status)
+		else
+			aud_status=""
 	fi
     if [ "${aud_status}" == "playing" ];then
         SONGSTRING=$(audtool current-song)
@@ -233,11 +235,15 @@ find_playing_song (){
     fi
 
     if [ "$COVERFILE" == "" ];then
-        if [ -f "${coverurl}" ];then
+        if [ -n "${coverurl}" ] && [ -f "${coverurl}" ];then
             COVERFILE="${coverurl}"
             coverurl=""
         else
-            COVERFILE=${DEFAULT_COVER}
+            if [ -f "${DEFAULT_COVER}" ];then
+                COVERFILE="${DEFAULT_COVER}"
+            else
+                COVERFILE=""
+            fi
         fi
     fi
     bob=$(cat "${YADSHOW_CACHE}/songinfo")
@@ -259,7 +265,8 @@ find_playing_song (){
         
         if [ "$COVERFILE" == "" ];then
             # use the default cover in the script directory
-            COVERFILE=$(echo "No cover or default cover found.")
+            echo "No cover or default cover found." >&2
+            return 1
         fi
     else
         SAME_SONG=1
@@ -273,7 +280,7 @@ main () {
     if [[ $SAME_SONG -eq 0 ]];then
         # global var COVERFILE should be set now
         # do we have imagemagick?
-        if [ -f $(which convert) ];then
+        if command -v convert >/dev/null 2>&1; then
             TEMPFILE3=$(mktemp)    
             convert "${COVERFILE}" -resize "600x600" "${TEMPFILE3}"
             round_rectangles "${TEMPFILE3}" "${YADSHOW_CACHE}/nowplaying.album.png"
