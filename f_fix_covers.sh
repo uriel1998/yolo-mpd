@@ -1,5 +1,4 @@
-#!/bin/bash
-
+#!/usr/bin/env bash
 
 ##############################################################################
 #
@@ -40,6 +39,7 @@ ALERT=0     # play audible ping when user input needed
 CHECKALL=0  # even if they all match, search & check anyway.
 EVERYTHING=0 # search online for every album
 SONGDIR=""
+SQUARE_TOLERANCE=5
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 export SCRIPT_DIR
@@ -81,14 +81,10 @@ function get_cover_label() {
     fi
 }
 
-function maybe_create_square_cover() {
+function get_image_dimensions() {
     local source_file="$1"
-    local source_name=""
-    local source_label=""
     local width=""
     local height=""
-    local square_size=""
-    local square_file=""
 
     if [ ! -f "${source_file}" ]; then
         return 1
@@ -97,7 +93,48 @@ function maybe_create_square_cover() {
     width=$(identify -format '%w' "${source_file}" 2>/dev/null)
     height=$(identify -format '%h' "${source_file}" 2>/dev/null)
 
-    if [ -z "${width}" ] || [ -z "${height}" ] || [ "${width}" -eq "${height}" ]; then
+    if [ -z "${width}" ] || [ -z "${height}" ]; then
+        return 1
+    fi
+
+    printf '%s %s\n' "${width}" "${height}"
+}
+
+function cover_square_delta() {
+    local source_file="$1"
+    local dims=""
+    local width=""
+    local height=""
+    local IFS=' '
+
+    dims=$(get_image_dimensions "${source_file}") || return 1
+    read -r width height <<< "${dims}"
+
+    if [ "${width}" -ge "${height}" ]; then
+        echo $((width - height))
+    else
+        echo $((height - width))
+    fi
+}
+
+function maybe_create_square_cover() {
+    local source_file="$1"
+    local source_name=""
+    local source_label=""
+    local dims=""
+    local width=""
+    local height=""
+    local square_size=""
+    local square_file=""
+    local IFS=' '
+
+    if [ ! -f "${source_file}" ]; then
+        return 1
+    fi
+
+    dims=$(get_image_dimensions "${source_file}") || return 1
+    read -r width height <<< "${dims}"
+    if [ "${width}" -eq "${height}" ]; then
         return 1
     fi
 
@@ -126,21 +163,39 @@ function maybe_create_square_cover() {
 
 function has_square_variant_candidate() {
     local source_file="$1"
-    local width=""
-    local height=""
+    local delta=""
 
     if [ ! -f "${source_file}" ]; then
         return 1
     fi
 
-    width=$(identify -format '%w' "${source_file}" 2>/dev/null)
-    height=$(identify -format '%h' "${source_file}" 2>/dev/null)
+    delta=$(cover_square_delta "${source_file}") || return 1
+    [ "${delta}" -gt "${SQUARE_TOLERANCE}" ]
+}
 
-    if [ -z "${width}" ] || [ -z "${height}" ]; then
+function auto_square_cover_if_close() {
+    local source_file="$1"
+    local square_file=""
+    local delta=""
+
+    if [ ! -f "${source_file}" ]; then
         return 1
     fi
 
-    [ "${width}" -ne "${height}" ]
+    delta=$(cover_square_delta "${source_file}") || return 1
+    if [ "${delta}" -eq 0 ] || [ "${delta}" -gt "${SQUARE_TOLERANCE}" ]; then
+        return 1
+    fi
+
+    square_file=$(maybe_create_square_cover "${source_file}") || return 1
+    if [ -n "${square_file}" ] && [ -f "${square_file}" ]; then
+        mv -f "${square_file}" "${source_file}"
+        set_cover_label "${source_file}" "$(get_cover_label "${square_file}")"
+        loud "Auto-squared $(basename "${source_file}") (${delta}px delta)"
+        return 0
+    fi
+
+    return 1
 }
 
 function create_labeled_preview() {
@@ -168,7 +223,24 @@ function create_labeled_preview() {
         -pointsize 18 \
         -undercolor '#111111cc' \
         -annotate +0+8 "${overlay_text}" \
-        "${preview_file}" 2>/dev/null; then
+        "${preview_file}" 2>/dev/nuUsing this as a base and styleguide: 
+
+- Have loud output on stderr. 
+- Have all output go to loud.
+- have a command-line switch for loud.
+
+- have the script
+
+1. recursively walk MPD_MUSIC_BASE
+2. examine if there is an .lrc file for each MP3.
+	if there is, skip to step 3
+	if not:
+	2a. If not, use the track's metadata to query lrclib for a match of track, album, artist, and duration.  Use the ratelimiting and fallback on errors mentioned above.
+	2a1. If a good match is found, download it.  If all match save for duration, download it.  Save in the music directory.
+	2a2. If a good match is not found, see if there are synchronized lyrics embedded in the text file.  If so, extract them to .lrc, otherwise move to step 3.
+3. If there is a .txt matching the MP3 with lyrics, skip to step 4.
+	3a. See if there are unsynchronized lyrics embedded in the MP3.  
+	3a1. If so, save as .txt in the directoryll; then
         echo "${preview_file}"
         return 0
     fi
@@ -539,6 +611,7 @@ function directory_check () {
         rm -rf "${TMPDIR}/*.jpg" 2>/dev/null 1>/dev/null
         FOUND_COVERS=0
         NON_SQUARE_FOUND=0
+        AUTO_SQUARED_FOUND=0
         EmbeddedChecksums=""
         while read -r line; do
             loud "Examining ${line}"
@@ -568,6 +641,9 @@ function directory_check () {
                             loud "Found ${FOUND_COVERS} covers so far!"
                             mv "${TMPDIR}/FRONT_COVER.jpeg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
                             set_cover_label "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg" "Tags ${FOUND_COVERS}"
+                            if auto_square_cover_if_close "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"; then
+                                AUTO_SQUARED_FOUND=1
+                            fi
                             if has_square_variant_candidate "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"; then
                                 NON_SQUARE_FOUND=1
                             fi
@@ -584,7 +660,10 @@ function directory_check () {
             FOUND_COVERS=$((FOUND_COVERS + 1))
             cp "${SONGDIR}/cover.jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
             set_cover_label "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg" "cover.jpg"
-            if has_square_variant_candidate "${SONGDIR}/cover.jpg"; then
+            if auto_square_cover_if_close "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"; then
+                AUTO_SQUARED_FOUND=1
+            fi
+            if has_square_variant_candidate "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"; then
                 NON_SQUARE_FOUND=1
             fi
         fi
@@ -592,7 +671,10 @@ function directory_check () {
             FOUND_COVERS=$((FOUND_COVERS + 1))
             cp "${SONGDIR}/cover (1).jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
             set_cover_label "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg" "cover (1).jpg"
-            if has_square_variant_candidate "${SONGDIR}/cover (1).jpg"; then
+            if auto_square_cover_if_close "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"; then
+                AUTO_SQUARED_FOUND=1
+            fi
+            if has_square_variant_candidate "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"; then
                 NON_SQUARE_FOUND=1
             fi
         fi
@@ -600,7 +682,10 @@ function directory_check () {
             FOUND_COVERS=$((FOUND_COVERS + 1))
             cp "${SONGDIR}/folder.jpg" "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"
             set_cover_label "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg" "folder.jpg"
-            if has_square_variant_candidate "${SONGDIR}/folder.jpg"; then
+            if auto_square_cover_if_close "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"; then
+                AUTO_SQUARED_FOUND=1
+            fi
+            if has_square_variant_candidate "${TMPDIR}/${FOUND_COVERS}FOUND_COVER.jpeg"; then
                 NON_SQUARE_FOUND=1
             fi
         fi
@@ -610,7 +695,7 @@ function directory_check () {
 
         if [ $FOUND_COVERS -eq 1 ];then
             if [ $CHECKALL -eq 0 ] && [ $NON_SQUARE_FOUND -eq 0 ];then
-                if [ $AUTOEMBED -eq 1 ];then
+                if [ $AUTOEMBED -eq 1 ] || [ $AUTO_SQUARED_FOUND -eq 1 ];then
                     canon_cover="${TMPDIR}/1FOUND_COVER.jpeg"
                 else
                     canon_cover=$(show_compare_images "${TMPDIR}/1FOUND_COVER.jpeg")
