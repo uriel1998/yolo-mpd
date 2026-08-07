@@ -14,6 +14,40 @@ Tag meanings:
 
 Commit hashes are short Git hashes from this repository history.
 
+## Release tags
+
+The repository also now carries annotated `v0.9.x` Git tags for major project milestones:
+
+* `v0.9.0` `c314643`: Initial project baseline.
+* `v0.9.1` `0840426`: Added the first simple cover script.
+* `v0.9.2` `3e9ac3f`: Added `mediakey.sh`.
+* `v0.9.3` `883b58d`: Added `mpdcontrol` and terminal cover tooling.
+* `v0.9.4` `b324039`: Added `webserver_covers.sh` and `mp3gainhelper.sh`.
+* `v0.9.5` `795995c`: Added `bpmtoolshelper.sh`.
+* `v0.9.6` `bb65105`: Added `terminal_multiplexer.sh` work.
+* `v0.9.7` `81b7e58`: Added `mpdcontrol_add`.
+* `v0.9.8` `df19593`: Expanded BPM helper behavior.
+* `v0.9.9` `8661fdb`: Early helper-tool milestone replacing the old unprefixed `0.9.9` tag.
+* `v0.9.10` `87353d7`: Added `stream_to_mpd.sh`.
+* `v0.9.11` `04a304f`: Added `yad_show_mpd.sh`.
+* `v0.9.12` `592a6bd`: Added `f_fix_covers.sh`.
+* `v0.9.13` `776c7d1`: Reached the first assembled `f_fix_covers.sh` end-to-end workflow.
+* `v0.9.14` `0b47e3c`: Added `edit_current_mp3tags.sh`.
+* `v0.9.15` `3c86923`: Added `mediakey_no_checking.sh`.
+* `v0.9.16` `6290d95`: Introduced terminal covers v2.
+* `v0.9.17` `96699ca`: Added working terminal lyric display.
+* `v0.9.18` `b2858fb`: Began `nowplaying_to_maubot.sh`.
+* `v0.9.19` `66750a7`: Added playlist sync and expanded Maubot integration.
+* `v0.9.20` `ce357e5`: Major `f_fix_covers.sh` improvement pass.
+* `v0.9.21` `b38394d`: Added `rerun_non_square_covers.sh`.
+* `v0.9.22` `8deb207`: Added `f_fix_lyrics.sh`.
+* `v0.9.23` `c5ae685`: Added the resumable lyric queue and startup pre-check flow.
+* `v0.9.24` `6952ba1`: Normalized helper scripts and Bash entrypoints.
+* `v0.9.25` `31be810`: Moved legacy scripts and fixed `terminal_lyrics.sh`.
+* `v0.9.26` `41c0f8f`: Fixed remaining root helper-script issues.
+* `v0.9.27` `749cf0f`: Reorganized and expanded the README.
+* `v0.9.28` `b9f5bb8`: Added this tool-oriented changelog.
+
 ## Repository, documentation, and structure
 
 * `[added]` `c314643`: Initial commit.
