@@ -356,6 +356,19 @@ extract_embedded_plain() {
     write_nonempty_file "${extracted}" "${output_file}"
 }
 
+convert_lrc_to_plaintext() {
+    local lrc_file="$1"
+    local output_file="$2"
+    local extracted="${LYRICTMP}/converted-plain"
+
+    # Stage the stripped lyrics in a real temp file so downstream size checks
+    # behave consistently; process substitution here was too brittle.
+    sed 's/^\[[0-9][0-9]*:[0-9][0-9]\([.:][0-9][0-9]*\)\?\][[:space:]]*//g' \
+        "${lrc_file}" > "${extracted}"
+
+    write_nonempty_file "${extracted}" "${output_file}"
+}
+
 ##############################################################################
 # LRCLIB
 ##############################################################################
@@ -622,7 +635,7 @@ process_mp3() {
         elif [[ -f "${lrc_file}" ]]; then
             # If we only have synced lyrics, strip timestamps to produce the
             # missing plain-text sidecar rather than leaving the track partial.
-            if write_nonempty_file <(sed 's/^\[[0-9][0-9]*:[0-9][0-9]\([.:][0-9][0-9]*\)\?\][[:space:]]*//g' "${lrc_file}") "${txt_file}"; then
+            if convert_lrc_to_plaintext "${lrc_file}" "${txt_file}"; then
                 loud "Converted synchronized lyrics to plain text: ${txt_file}"
             else
                 loud "Synchronized lyrics exist, but plain-text conversion produced nothing."
