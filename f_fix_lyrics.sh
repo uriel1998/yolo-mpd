@@ -470,6 +470,10 @@ save_lrclib_result() {
             write_nonempty_file "${plain_file}" "${txt_file}"
             return
         fi
+    else
+        # A metadata match is still useful even when the plain-text sidecar is
+        # already present and LRCLIB has no synced lyrics to save.
+        jq -e '(.plainLyrics // "") != ""' "${response_file}" >/dev/null 2>&1 && return 0
     fi
 
     return 1
