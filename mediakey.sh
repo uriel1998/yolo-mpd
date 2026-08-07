@@ -26,102 +26,108 @@ fi
 
 ActivePlayers=$(qdbus | grep org.mpris.MediaPlayer2 | awk '{print $1}')
 
-# Only triggered if a player is specified, then checks to make sure it's up.
-if [ $# = 2 ]; then
-    case "$2" in
-        [Pp]*)
-            if [[ "$ActivePlayers" != *"pithos"* ]]; then
-                echo "Pithos is not playing."
-                exit
-            else
-                ActivePlayers="org.mpris.MediaPlayer2.pithos"
-            fi          
-            ;;
-        [Aa]*)
-            if [[ "$ActivePlayers" != *"audacious"* ]]; then
-                echo "Audacious is not playing."
-                exit
-            else
-                ActivePlayers="org.mpris.MediaPlayer2.audacious"
-            fi          
-            ;;
-        [Mm]*)
-            if [[ "$ActivePlayers" != *"mpd"* ]]; then
-                echo "MPD is not playing."
-                exit
-            else
-                ActivePlayers="org.mpris.MediaPlayer2.mpd"
-            fi          
-            ;;
-        [Cc]*)
-            if [[ "$ActivePlayers" != *"clementine"* ]]; then
-                echo "Clementine is not playing."
-                exit
-            else
-                ActivePlayers="org.mpris.MediaPlayer2.clementine"
-            fi          
+select_player() {
+    case "$1" in
+        [Pp]*) echo "org.mpris.MediaPlayer2.pithos" ;;
+        [Aa]*) echo "org.mpris.MediaPlayer2.audacious" ;;
+        [Mm]*) echo "org.mpris.MediaPlayer2.mpd" ;;
+        [Cc]*) echo "org.mpris.MediaPlayer2.clementine" ;;
+        *)
+            echo ""
+            return 1
             ;;
     esac
+}
+
+for_each_active_player() {
+    local player=""
+
+    while IFS= read -r player; do
+        [[ -n "${player}" ]] || continue
+        "$@" "${player}"
+    done <<< "${ActivePlayers}"
+}
+
+# Only triggered if a player is specified, then checks to make sure it's up.
+if [ $# = 2 ]; then
+    selected_player=$(select_player "$2") || {
+        echo "Unknown player: $2"
+        exit 1
+    }
+    if [[ "${ActivePlayers}" != *"${selected_player}"* ]]; then
+        echo "${selected_player##*.} is not playing."
+        exit
+    fi
+    ActivePlayers="${selected_player}"
 fi
 
+[[ -n "${ActivePlayers}" ]] || exit 0
+
+handle_play_toggle() {
+    local player="$1"
+
+    if [[ "$player" == *"mpd" ]];then
+        mpdcheck=$(mpc | tail -2 | head -1 | awk '{print $1}')
+        if [[ "${mpdcheck}" == "[playing]" ]];then
+            qdbus org.mpris.MediaPlayer2.mpd /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Pause
+        else
+            qdbus org.mpris.MediaPlayer2.mpd /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Play
+        fi
+    else
+        qdbus "${player}" /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.PlayPause
+    fi
+}
+
+handle_next() {
+    qdbus "$1" /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Next
+}
+
+handle_previous() {
+    qdbus "$1" /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Previous
+}
+
+handle_stop() {
+    local player="$1"
+
+    if [[ "$player" == *"pithos" ]];then
+        qdbus org.mpris.MediaPlayer2.pithos /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.PlayPause
+    else
+        qdbus "${player}" /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Stop
+    fi
+}
+
+handle_pause() {
+    local player="$1"
+
+    if [[ "$player" == *"mpd" ]];then
+        mpdcheck=$(mpc | tail -2 | head -1 | awk '{print $1}')
+        if [[ "${mpdcheck}" == "[playing]" ]];then
+            qdbus org.mpris.MediaPlayer2.mpd /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Pause
+        else
+            qdbus org.mpris.MediaPlayer2.mpd /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Play
+        fi
+    elif [[ "$player" == *"pithos" ]];then
+        qdbus org.mpris.MediaPlayer2.pithos /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.PlayPause
+    else
+        qdbus "${player}" /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Pause
+    fi
+}
 
 case "$1" in
     # Play/pause
     [Pp]*)
-        while IFS= read -r player; do
-            if [[ "$player" =~ "mpd" ]];then
-                # creating play/pause functionality
-                mpdcheck=$(mpc | tail -2 | head -1 | awk '{print $1}')
-                if [[ "${mpdcheck}" =~ "[playing]" ]];then
-                    qdbus org.mpris.MediaPlayer2.mpd /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Pause
-                else
-                    qdbus org.mpris.MediaPlayer2.mpd /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Play
-                fi                
-            else
-                if [[ "$player" =~ "pithos" ]];then
-                    qdbus org.mpris.MediaPlayer2.pithos /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.PlayPause
-                else
-                    qdbus "${player}" /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Play
-                fi
-            fi
-        done <<< "${ActivePlayers}"        
+        for_each_active_player handle_play_toggle
         ;;
     [Nn]*)
-        while IFS= read -r player; do
-            qdbus "${player}" /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Next
-        done <<< "${ActivePlayers}"        
+        for_each_active_player handle_next
         ;;
     [Bb]*)
-        while IFS= read -r player; do
-            qdbus "${player}" /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Previous
-        done <<< "${ActivePlayers}"        
+        for_each_active_player handle_previous
         ;;        
     [Ss]*)
-        while IFS= read -r player; do
-            if [[ "$player" =~ "pithos" ]];then
-                qdbus org.mpris.MediaPlayer2.pithos /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.PlayPause
-            else
-                qdbus "${player}" /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Stop
-            fi
-        done <<< "${ActivePlayers}"        
+        for_each_active_player handle_stop
         ;;
     [Zz]*) 
-        while IFS= read -r player; do
-            if [[ "$player" =~ "mpd" ]];then
-                # creating play/pause functionality
-                mpdcheck=$(mpc | tail -2 | head -1 | awk '{print $1}')
-                if [ "${mpdcheck}" == "[playing]" ];then
-                    qdbus org.mpris.MediaPlayer2.mpd /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Pause
-                else
-                    qdbus org.mpris.MediaPlayer2.mpd /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Play
-                fi                
-            else
-                if [[ "$player" =~ "pithos" ]];then
-                    qdbus org.mpris.MediaPlayer2.pithos /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.PlayPause
-                else
-                    qdbus "${player}" /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Pause
-                fi
-            fi
-        done <<< "${ActivePlayers}"        
+        for_each_active_player handle_pause
         ;;
 esac
