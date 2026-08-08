@@ -480,4 +480,4 @@ Dependencies:
 
 ![button_some-ai-used](https://i.imgur.com/rmiLFDD.png)
 
-The code in this repository has been to some degree written or altered by an AI tool with human supervision.  This may include one or more of the following: documentation, locating bugs, or commit messages; in this repository it's been bugsquashing and reorganizing and updating the documentation.  
+The code in this repository has been to some degree written or altered by an AI tool with human supervision.  This may include one or more of the following: documentation, locating bugs, or commit messages; in this repository it's been used for bug squashing and reorganizing and updating the documentation.  
