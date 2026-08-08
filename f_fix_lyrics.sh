@@ -18,6 +18,8 @@ LOUD=0
 REQUEST_DELAY="0.5"
 MAX_RETRIES=4
 FORCE=0
+UPDATE_MODE=0
+BASE_WAS_SET=0
 LRCLIB_API="https://lrclib.net/api"
 LRCLIB_USER_AGENT="f_fix_lyrics/1.0 (local personal music-library tool)"
 LYRICTMP=""
@@ -52,6 +54,7 @@ usage() {
     loud "  -l, --loud             Enable diagnostic output on stderr"
     loud "  -b, --base DIRECTORY   MPD music root (default: \$MPD_MUSIC_BASE or ~/Music)"
     loud "  -f, --force            Recheck files even when lyric sidecars already exist"
+    loud "  -u, --update           Immediately scan only the specified --base directory and ignore any persistent queue"
     loud "      --delay SECONDS    Delay between LRCLIB requests (default: ${REQUEST_DELAY})"
     loud "  -h, --help             Show this help"
 }
@@ -692,10 +695,14 @@ while (( $# > 0 )); do
         -f|--force)
             FORCE=1
             ;;
+        -u|--update)
+            UPDATE_MODE=1
+            ;;
         -b|--base)
             shift
             (( $# > 0 )) || die "--base requires a directory."
             MPD_MUSIC_BASE="$1"
+            BASE_WAS_SET=1
             ;;
         --delay)
             shift
@@ -751,12 +758,17 @@ main() {
     [[ "${REQUEST_DELAY}" =~ ^[0-9]+([.][0-9]+)?$ ]] ||
         die "--delay must be a non-negative number."
 
+    if (( UPDATE_MODE == 1 && BASE_WAS_SET == 0 )); then
+        die "--update requires an explicit --base DIRECTORY."
+    fi
+
     LYRICTMP=$(mktemp -d) || die "Could not create temporary directory."
 
     loud "Scanning recursively: ${MPD_MUSIC_BASE}"
     loud "LRCLIB delay: ${REQUEST_DELAY}s"
     loud "Queue file: ${QUEUE_FILE}"
     loud "Force mode: ${FORCE}"
+    loud "Update mode: ${UPDATE_MODE}"
 
     if (( FORCE == 0 )); then
         # In normal mode, pre-index sidecars first so queue construction can
@@ -766,14 +778,23 @@ main() {
         loud "Skipping initial sidecar index because force mode is enabled."
     fi
 
-    if [[ -f "${QUEUE_FILE}" ]]; then
-        # Existing queue means a prior run left resumable state behind.
-        using_queue=1
-        loud "Using existing queue file."
+    if (( UPDATE_MODE == 1 )); then
+        live_list_file="${LYRICTMP}/update-scan.queue"
+        # Update mode is intentionally queueless: scan the requested subtree
+        # immediately and leave any persistent queue file completely untouched.
+        build_work_list "${live_list_file}"
+        live_total=$(count_operations_in_list "${live_list_file}")
+        loud "Update mode ignores persistent queue state and will process ${live_total} lyric operation(s)."
     else
-        # No queue means either first run or a previously completed run.
-        build_queue_file
-        using_queue=1
+        if [[ -f "${QUEUE_FILE}" ]]; then
+            # Existing queue means a prior run left resumable state behind.
+            using_queue=1
+            loud "Using existing queue file."
+        else
+            # No queue means either first run or a previously completed run.
+            build_queue_file
+            using_queue=1
+        fi
     fi
 
     if (( using_queue == 1 )); then
@@ -818,7 +839,9 @@ main() {
         # durable across runs.
         build_work_list "${live_list_file}"
         live_total=$(count_operations_in_list "${live_list_file}")
+    fi
 
+    if [[ -n "${live_list_file}" && -f "${live_list_file}" ]]; then
         while IFS= read -r song_file; do
             [[ -n "${song_file}" ]] || continue
             song_operations=$(count_pending_operations "${song_file}")
