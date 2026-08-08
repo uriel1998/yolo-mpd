@@ -47,7 +47,8 @@ The repository also now carries annotated `v0.9.x` Git tags for major project mi
 * `v0.9.26` `41c0f8f`: Fixed remaining root helper-script issues.
 * `v0.9.27` `749cf0f`: Reorganized and expanded the README.
 * `v0.9.28` `b9f5bb8`: Added this tool-oriented changelog.
-* `v0.9.29` `current`: Added `snapmixer.py` and documented it in the repository docs.
+* `v0.9.29` `3bf1d05`: Added `snapmixer.py` and documented it in the repository docs.
+* `v0.9.30` `current`: Added MPD master volume support to `snapmixer.py`, restored Snapcast client visibility, and updated help and README text.
 
 ## Repository, documentation, and structure
 
@@ -219,6 +220,7 @@ The repository also now carries annotated `v0.9.x` Git tags for major project mi
 ## `snapmixer.py`
 
 * `[added]` `unreleased`: Added a curses-based Snapcast client mixer with per-client volume, mute, refresh, and host/port override support.
+* `[major]` `unreleased`: Added a separate MPD master volume section backed by `mpc`, using `MPD_HOST`/`MPD_PORT`/`MPD_PASSWORD` from the environment or `maubot_vars.env`, and fixed a Snapcast row regression caused by the row-id refactor.
 
 ## `mp3gainhelper.sh`
 

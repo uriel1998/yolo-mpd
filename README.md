@@ -28,7 +28,7 @@ This README documents every Bash script in the repository root. Legacy scripts t
 
 * `mediakey.sh`: Send play/pause/next/previous/stop actions through MPRIS with optional player targeting.
 * `mediakey_no_checking.sh`: Faster mediakey variant with lighter player checks but the same action model.
-* `snapmixer.py`: Terminal Snapcast client mixer for per-client volume and mute control.
+* `snapmixer.py`: Terminal Snapcast client mixer with a separate MPD master volume control.
 * `nowplaying_to_maubot.sh`: Build a composite “now playing” image, set the desktop background, and post the current track to Maubot.
 
 ### Streaming, playlists, and cover export
@@ -386,14 +386,17 @@ Dependencies:
 
 ### `snapmixer.py`
 
-Shows a minimal curses-based mixer for connected Snapcast clients over Snapcast's JSON-RPC TCP interface.
+Shows a minimal curses-based mixer for connected Snapcast clients over Snapcast's JSON-RPC TCP interface, with a separate MPD master volume row when MPD control is available.
 
 Behavior:
 
 * Lists connected clients sorted by group and client name.
+* Shows MPD master volume in a separate labeled section above the Snapcast clients.
 * Adjusts per-client volume with vim-style or arrow-key navigation.
 * Supports absolute volume presets with `` ` `` and `0` through `9`.
 * Toggles mute per client and can refresh the client list without restarting.
+* Uses `mpc` to control MPD master volume and treats mute as volume `0` with restore of the last nonzero volume.
+* Reads MPD credentials from `MPD_HOST`, `MPD_PORT`, and `MPD_PASSWORD` in the environment first, then falls back to `maubot_vars.env`.
 * Connects to the Snapcast server on `127.0.0.1:1705` by default, with host, port, and timeout overrides.
 
 Usage:
@@ -406,6 +409,7 @@ Dependencies:
 
 * `python3`
 * Python standard library modules: `argparse`, `curses`, `json`, `socket`, `textwrap`
+* `mpc` for optional MPD master volume control
 
 ### `stream_to_mpd.sh`
 
