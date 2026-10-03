@@ -20,7 +20,7 @@ shopt -s nullglob
 for file in "$PLAYLISTS"/*.m3u; do
     filename=$(basename "$file")
     target="$FORMPD/$filename"
-    if [ "$file" != *Radio* ];then
+    if [[ "$file" != *Radio* ]];then
   
         # If source is newer than target (or target doesn't exist)
         if [[ "$file" -nt "$target" ]]; then
