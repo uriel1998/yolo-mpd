@@ -21,13 +21,17 @@ FORCE=0
 UPDATE_MODE=0
 BASE_WAS_SET=0
 LRCLIB_API="https://lrclib.net/api"
-LRCLIB_USER_AGENT="f_fix_lyrics/1.0 (local personal music-library tool)"
+LRCLIB_USER_AGENT="f_fix_lyrics/1.1 (https://github.com/uriel1998)"
+SEARCH_DURATION_TOLERANCE="${SEARCH_DURATION_TOLERANCE:-5}"
+NEGATIVE_CACHE_DAYS=30
 LYRICTMP=""
 LAST_API_REQUEST_EPOCH=""
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 # This queue persists across runs so an interrupted scan can resume where it
 # left off instead of rebuilding state from scratch every time.
-QUEUE_FILE="${SCRIPT_DIR}/f_fix_lyrics.queue"
+QUEUE_FILE=""
+NEGATIVE_CACHE_FILE=""
+SONG_WRITES=0
 # These indexes are built once at startup to cheaply prune files that already
 # have lyric sidecars before the script touches individual MP3 metadata.
 declare -A KNOWN_TXT_STEMS=()
@@ -56,6 +60,7 @@ usage() {
     loud "  -f, --force            Recheck files even when lyric sidecars already exist"
     loud "  -u, --update           Immediately scan only the specified --base directory and ignore any persistent queue"
     loud "      --delay SECONDS    Delay between LRCLIB requests (default: ${REQUEST_DELAY})"
+    loud "      --duration-tolerance SECONDS  Maximum fallback duration difference (default: ${SEARCH_DURATION_TOLERANCE})"
     loud "  -h, --help             Show this help"
 }
 
@@ -86,20 +91,65 @@ trim() {
 }
 
 normalize() {
-    printf '%s' "$1" |
-        tr '[:upper:]' '[:lower:]' |
-        sed -E \
-            -e 's/&/and/g' \
-            -e 's/[^[:alnum:]]+/ /g' \
-            -e 's/^[[:space:]]+//' \
-            -e 's/[[:space:]]+$//' \
-            -e 's/[[:space:]]+/ /g'
+    printf '%s' "$1" | jq -Rr '
+        ascii_downcase
+        | gsub("&"; "and")
+        | gsub("[^[:alnum:]]+"; " ")
+        | gsub("^ +| +$"; "")
+        | gsub(" +"; " ")
+    '
 }
 
 has_lrc_timestamps() {
     # LRC lines begin with timestamps like `[01:23.45]`; this keeps synced and
     # plain lyrics from being mixed up later in the pipeline.
     grep -Eq '^\[[0-9]{1,3}:[0-9]{2}([.:][0-9]{1,3})?\]' "$1"
+}
+
+valid_txt() {
+    [[ -s "$1" ]] && grep -q '[^[:space:]]' "$1"
+}
+
+valid_lrc() {
+    [[ -s "$1" ]] && has_lrc_timestamps "$1"
+}
+
+cache_key() {
+    printf '%s' "$1" | sha256sum | cut -d ' ' -f 1
+}
+
+negative_cache_active() {
+    local key now expires kind
+    [[ -f "${NEGATIVE_CACHE_FILE}" ]] || return 1
+    key=$(cache_key "$1")
+    now=$(date +%s)
+    while IFS=$'\t' read -r kind expires; do
+        [[ "${kind}" == "${key}" ]] || continue
+        [[ "${expires}" =~ ^[0-9]+$ ]] && (( expires > now )) && return 0
+    done < "${NEGATIVE_CACHE_FILE}"
+    return 1
+}
+
+remember_negative() {
+    local key expires temporary
+    key=$(cache_key "$1")
+    expires=$(( $(date +%s) + NEGATIVE_CACHE_DAYS * 86400 ))
+    temporary="${NEGATIVE_CACHE_FILE}.tmp.$$"
+    if [[ -f "${NEGATIVE_CACHE_FILE}" ]]; then
+        awk -F '\t' -v key="${key}" '$1 != key { print }' "${NEGATIVE_CACHE_FILE}" > "${temporary}" || return 1
+    else
+        : > "${temporary}" || return 1
+    fi
+    printf '%s\t%s\n' "${key}" "${expires}" >> "${temporary}" && mv -- "${temporary}" "${NEGATIVE_CACHE_FILE}"
+}
+
+forget_negative() {
+    local key temporary
+    [[ -f "${NEGATIVE_CACHE_FILE}" ]] || return 0
+    key=$(cache_key "$1")
+    temporary="${NEGATIVE_CACHE_FILE}.tmp.$$"
+    awk -F '\t' -v key="${key}" '$1 != key { print }' "${NEGATIVE_CACHE_FILE}" > "${temporary}" &&
+        mv -- "${temporary}" "${NEGATIVE_CACHE_FILE}"
 }
 
 write_nonempty_file() {
@@ -118,7 +168,9 @@ write_nonempty_file() {
         return 1
     fi
 
-    mv -- "${temporary_file}" "${destination_file}"
+    mv -- "${temporary_file}" "${destination_file}" || return 1
+    ((SONG_WRITES++))
+    return 0
 }
 
 needs_processing() {
@@ -134,9 +186,10 @@ needs_processing() {
 
     # Only skip fully satisfied tracks. If either sidecar is missing, the track
     # still has remaining work.
-    if [[ -f "${txt_file}" && -f "${lrc_file}" ]]; then
+    if valid_txt "${txt_file}" && valid_lrc "${lrc_file}"; then
         return 1
     fi
+    negative_cache_active "${song_file}" && return 1
     return 0
 }
 
@@ -164,8 +217,8 @@ count_pending_operations() {
         return 0
     fi
 
-    [[ -f "${lrc_file}" ]] || ((operations++))
-    [[ -f "${txt_file}" ]] || ((operations++))
+    valid_lrc "${lrc_file}" || ((operations++))
+    valid_txt "${txt_file}" || ((operations++))
 
     echo "${operations}"
 }
@@ -181,7 +234,7 @@ count_operations_in_list() {
         return 0
     }
 
-    while IFS= read -r song_file; do
+    while IFS= read -r -d '' song_file; do
         [[ -n "${song_file}" ]] || continue
         operations=$(count_pending_operations "${song_file}")
         ((total += operations))
@@ -202,7 +255,7 @@ index_existing_sidecars() {
     loud "Indexing existing .txt lyric sidecars under ${MPD_MUSIC_BASE}"
     while IFS= read -r -d '' lyric_file; do
         stem="${lyric_file%.*}"
-        KNOWN_TXT_STEMS["${stem}"]=1
+        valid_txt "${lyric_file}" && KNOWN_TXT_STEMS["${stem}"]=1
     done < <(
         find "${MPD_MUSIC_BASE}" -type f -iname '*.txt' -print0
     )
@@ -210,7 +263,7 @@ index_existing_sidecars() {
     loud "Indexing existing .lrc lyric sidecars under ${MPD_MUSIC_BASE}"
     while IFS= read -r -d '' lyric_file; do
         stem="${lyric_file%.*}"
-        KNOWN_LRC_STEMS["${stem}"]=1
+        valid_lrc "${lyric_file}" && KNOWN_LRC_STEMS["${stem}"]=1
     done < <(
         find "${MPD_MUSIC_BASE}" -type f -iname '*.lrc' -print0
     )
@@ -223,6 +276,8 @@ should_queue_song() {
     if (( FORCE == 1 )); then
         return 0
     fi
+
+    negative_cache_active "${song_file}" && return 1
 
     # Skip only when both sidecar forms already exist for the same stem.
     if [[ -n "${KNOWN_TXT_STEMS[${song_base}]+x}" &&
@@ -238,21 +293,44 @@ remove_first_queue_entry() {
     local song_file="$2"
     local temp_queue
 
-    [[ -f "${queue_file}" ]] || return 0
+    [[ -f "${queue_file}" ]] || return 1
 
     temp_queue="${queue_file}.tmp.$$"
-    # Remove only the first matching queue item so duplicate paths, while not
-    # expected, still preserve stable resume semantics.
-    awk -v target="${song_file}" '
-        BEGIN { removed = 0 }
-        {
-            if (!removed && $0 == target) {
-                removed = 1
-                next
-            }
-            print
-        }
-    ' "${queue_file}" > "${temp_queue}" && mv -- "${temp_queue}" "${queue_file}"
+    local entry="" removed=0
+    : > "${temp_queue}" || return 1
+    while IFS= read -r -d '' entry; do
+        if (( removed == 0 )) && [[ "${entry}" == "${song_file}" ]]; then
+            removed=1
+            continue
+        fi
+        printf '%s\0' "${entry}" >> "${temp_queue}" || return 1
+    done < "${queue_file}"
+    (( removed == 1 )) || return 1
+    mv -- "${temp_queue}" "${queue_file}"
+}
+
+defer_first_queue_entry() {
+    local queue_file="$1" song_file="$2" temporary entry="" first=1
+    temporary="${queue_file}.tmp.$$"
+    : > "${temporary}" || return 1
+    while IFS= read -r -d '' entry; do
+        if (( first == 1 )); then
+            [[ "${entry}" == "${song_file}" ]] || return 1
+            first=0
+        else
+            printf '%s\0' "${entry}" >> "${temporary}" || return 1
+        fi
+    done < "${queue_file}"
+    (( first == 0 )) || return 1
+    printf '%s\0' "${song_file}" >> "${temporary}" && mv -- "${temporary}" "${queue_file}"
+}
+
+count_queue_entries() {
+    local entry="" total=0
+    while IFS= read -r -d '' entry; do
+        ((total++))
+    done < "$1"
+    printf '%s\n' "${total}"
 }
 
 build_queue_file() {
@@ -264,7 +342,7 @@ build_queue_file() {
     # The persistent queue only stores work that is still relevant right now.
     while IFS= read -r -d '' song_file; do
         if should_queue_song "${song_file}" && needs_processing "${song_file}"; then
-            printf '%s\n' "${song_file}" >> "${QUEUE_FILE}"
+            printf '%s\0' "${song_file}" >> "${QUEUE_FILE}"
         fi
     done < <(
         find "${MPD_MUSIC_BASE}" -type f -iname '*.mp3' -print0
@@ -281,7 +359,7 @@ build_work_list() {
     # the persisted queue is deleted during a run.
     while IFS= read -r -d '' song_file; do
         if should_queue_song "${song_file}" && needs_processing "${song_file}"; then
-            printf '%s\n' "${song_file}" >> "${output_file}"
+            printf '%s\0' "${song_file}" >> "${output_file}"
         fi
     done < <(
         find "${MPD_MUSIC_BASE}" -type f -iname '*.mp3' -print0
@@ -367,10 +445,31 @@ convert_lrc_to_plaintext() {
 
     # Stage the stripped lyrics in a real temp file so downstream size checks
     # behave consistently; process substitution here was too brittle.
-    sed 's/^\[[0-9][0-9]*:[0-9][0-9]\([.:][0-9][0-9]*\)\?\][[:space:]]*//g' \
-        "${lrc_file}" > "${extracted}"
+    awk '
+        {
+            line = $0
+            sub(/\r$/, "", line)
+            while (line ~ /^\[[0-9]+:[0-9][0-9]([.:][0-9]+)?\]/) {
+                sub(/^\[[0-9]+:[0-9][0-9]([.:][0-9]+)?\][[:space:]]*/, "", line)
+            }
+            if (line ~ /^\[[[:alpha:]][[:alnum:]_]*:/ || line ~ /^[[:space:]]*$/) next
+            print line
+        }
+    ' "${lrc_file}" > "${extracted}"
 
     write_nonempty_file "${extracted}" "${output_file}"
+}
+
+retry_after_seconds() {
+    local header_file="$1" value timestamp now
+    value=$(awk 'tolower($1) == "retry-after:" { sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit }' "${header_file}")
+    if [[ "${value}" =~ ^[0-9]+$ ]]; then
+        printf '%s\n' "${value}"
+        return 0
+    fi
+    timestamp=$(date -d "${value}" +%s 2>/dev/null) || return 1
+    now=$(date +%s)
+    (( timestamp > now )) && printf '%s\n' "$((timestamp - now))" || printf '0\n'
 }
 
 ##############################################################################
@@ -441,26 +540,22 @@ lrclib_request() {
                 # treated as a script-level failure.
                 return 4
                 ;;
-            429)
+            429|503)
                 # Respect server-advertised pacing when present.
-                retry_after=$(
-                    awk 'BEGIN{IGNORECASE=1}
-                         /^Retry-After:/ {
-                             gsub("\r", "", $2);
-                             print $2;
-                             exit
-                         }' "${header_file}"
-                )
-                [[ "${retry_after}" =~ ^[0-9]+$ ]] || retry_after=$(( attempt * 3 ))
-                loud "LRCLIB rate limit reached; retrying after ${retry_after}s."
-                sleep "${retry_after}"
-                LAST_API_REQUEST_EPOCH=""
+                if (( attempt < MAX_RETRIES )); then
+                    retry_after=$(retry_after_seconds "${header_file}") || retry_after=$(( attempt * 3 ))
+                    loud "LRCLIB HTTP ${status}; retrying after ${retry_after}s."
+                    sleep "${retry_after}"
+                    LAST_API_REQUEST_EPOCH=""
+                fi
                 ;;
-            500|502|503|504|000)
+            500|502|504|000)
                 # Retry transient server and transport failures with backoff.
                 loud "LRCLIB request failed with HTTP ${status}; retry ${attempt}/${MAX_RETRIES}."
-                sleep $(( attempt * 3 ))
-                LAST_API_REQUEST_EPOCH=""
+                if (( attempt < MAX_RETRIES )); then
+                    sleep $(( attempt * 3 ))
+                    LAST_API_REQUEST_EPOCH=""
+                fi
                 ;;
             *)
                 loud "LRCLIB returned HTTP ${status}; not retrying."
@@ -475,6 +570,32 @@ lrclib_request() {
     return 1
 }
 
+select_search_result() {
+    local response_file="$1" selected_file="$2" title="$3" artist="$4" album="$5" duration="$6"
+    jq \
+        --arg title "$(normalize "${title}")" \
+        --arg artist "$(normalize "${artist}")" \
+        --arg album "$(normalize "${album}")" \
+        --argjson duration "${duration}" \
+        --argjson tolerance "${SEARCH_DURATION_TOLERANCE}" '
+        def norm:
+            ascii_downcase
+            | gsub("&"; "and")
+            | gsub("[^[:alnum:]]+"; " ")
+            | gsub("^ +| +$"; "")
+            | gsub(" +"; " ");
+
+        map(select(
+            ((.trackName // "") | norm) == $title and
+            ((.artistName // "") | norm) == $artist and
+            ($album == "" or ((.albumName // "") | norm) == $album) and
+            ($duration == 0 or (((.duration // 0) - $duration) | fabs) <= $tolerance)
+        ))
+        | sort_by(((.duration // 0) - $duration) | fabs)
+        | .[0] // empty
+    ' "${response_file}" > "${selected_file}"
+}
+
 save_lrclib_result() {
     local response_file="$1"
     local lrc_file="$2"
@@ -482,28 +603,34 @@ save_lrclib_result() {
     local synced_file="${LYRICTMP}/lrclib-synced"
     local plain_file="${LYRICTMP}/lrclib-plain"
 
-    # Prefer synchronized lyrics when the API provides them.
+    local saved=0
+    local synced_saved=0
+    # Save both forms from one response. A plain-only result does not replace
+    # a valid synchronized sidecar, even in force mode.
     jq -r '.syncedLyrics // empty' "${response_file}" > "${synced_file}"
-    if [[ -s "${synced_file}" ]]; then
-        write_nonempty_file "${synced_file}" "${lrc_file}"
-        return
+    if valid_lrc "${synced_file}" &&
+       { (( FORCE == 1 )) || ! valid_lrc "${lrc_file}"; }; then
+        write_nonempty_file "${synced_file}" "${lrc_file}" || return 1
+        saved=1
+        synced_saved=1
     fi
 
-    # Preserve a valid unsynchronized LRCLIB result as the plain-text sidecar.
-    # This also prevents an unnecessary embedded-lyrics extraction attempt.
-    if [[ ! -e "${txt_file}" ]]; then
-        jq -r '.plainLyrics // empty' "${response_file}" > "${plain_file}"
-        if [[ -s "${plain_file}" ]]; then
-            write_nonempty_file "${plain_file}" "${txt_file}"
-            return
-        fi
-    else
-        # A metadata match is still useful even when the plain-text sidecar is
-        # already present and LRCLIB has no synced lyrics to save.
-        jq -e '(.plainLyrics // "") != ""' "${response_file}" >/dev/null 2>&1 && return 0
+    jq -r '.plainLyrics // empty' "${response_file}" > "${plain_file}"
+    if valid_txt "${plain_file}" &&
+       { (( FORCE == 1 )) || ! valid_txt "${txt_file}"; }; then
+        write_nonempty_file "${plain_file}" "${txt_file}" || return 1
+        saved=1
     fi
-
-    return 1
+    if (( synced_saved == 1 )) && ! valid_txt "${plain_file}" &&
+       { (( FORCE == 1 )) || ! valid_txt "${txt_file}"; }; then
+        convert_lrc_to_plaintext "${lrc_file}" "${txt_file}" || return 1
+        saved=1
+    fi
+    (( saved == 1 )) || valid_lrc "${lrc_file}" || valid_txt "${txt_file}" || return 1
+    valid_lrc "${synced_file}" && return 0
+    # Plain lyrics are a completed lookup, but synchronized lyrics may appear
+    # later. The negative cache sets the date for checking again.
+    return 3
 }
 
 query_lrclib() {
@@ -517,62 +644,69 @@ query_lrclib() {
     local response="${LYRICTMP}/lrclib-response.json"
     local search_response="${LYRICTMP}/lrclib-search.json"
     local selected="${LYRICTMP}/lrclib-selected.json"
+    local -a exact_args=(--data-urlencode "track_name=${title}" --data-urlencode "artist_name=${artist}")
+    local -a search_args=(--data-urlencode "track_name=${title}" --data-urlencode "artist_name=${artist}")
+    local request_status=0
+    local query_round=1
 
     : > "${response}"
+
+    [[ -n "${album}" ]] && exact_args+=(--data-urlencode "album_name=${album}")
+    [[ -n "${album}" ]] && search_args+=(--data-urlencode "album_name=${album}")
+    if [[ "${duration}" =~ ^[0-9]+$ ]] && (( duration >= 1 && duration <= 3600 )); then
+        exact_args+=(--data-urlencode "duration=${duration}")
+    fi
 
     # Start with the exact endpoint because duration-aware matches are the most
     # trustworthy result LRCLIB can return.
     # First try LRCLIB's exact-signature endpoint.
-    if lrclib_request get \
-        --data-urlencode "track_name=${title}" \
-        --data-urlencode "artist_name=${artist}" \
-        --data-urlencode "album_name=${album}" \
-        --data-urlencode "duration=${duration}" > "${response}"; then
+    if lrclib_request get "${exact_args[@]}" > "${response}"; then
 
         if jq -e 'type == "object" and (.id != null)' "${response}" >/dev/null 2>&1; then
             loud "LRCLIB exact match found."
-            save_lrclib_result "${response}" "${lrc_file}" "${txt_file}"
-            return
+            if jq -e '.instrumental == true' "${response}" >/dev/null 2>&1; then
+                return 2
+            fi
+            if jq -e '((.syncedLyrics // "") != "") or ((.plainLyrics // "") != "")' "${response}" >/dev/null 2>&1; then
+                save_lrclib_result "${response}" "${lrc_file}" "${txt_file}"
+                return $?
+            fi
         fi
+    else
+        request_status=$?
+        (( request_status == 4 )) || return 1
     fi
 
-    # Fallback: search and accept a record whose normalized title, artist,
-    # and album all match, even when duration does not.
-    : > "${search_response}"
-    if ! lrclib_request search \
-        --data-urlencode "track_name=${title}" \
-        --data-urlencode "artist_name=${artist}" \
-        --data-urlencode "album_name=${album}" > "${search_response}"; then
-        return 1
+    # Search can find records absent from the exact endpoint. Keep automatic
+    # matching within the configured duration tolerance when duration exists.
+    while (( query_round <= 2 )); do
+        : > "${search_response}"
+        if lrclib_request search "${search_args[@]}" > "${search_response}"; then
+            select_search_result "${search_response}" "${selected}" \
+                "${title}" "${artist}" "${album}" "${duration}" || return 1
+            if jq -e 'type == "object" and (.id != null)' "${selected}" >/dev/null 2>&1; then
+                break
+            fi
+        else
+            request_status=$?
+            (( request_status == 4 )) || return 1
+        fi
+        if [[ -z "${album}" ]] || (( query_round == 2 )); then
+            return 2
+        fi
+        # A broader request can surface a matching album record that the
+        # service's first page of album-filtered results omitted.
+        search_args=(--data-urlencode "track_name=${title}" --data-urlencode "artist_name=${artist}")
+        ((query_round++))
+    done
+
+    loud "LRCLIB metadata and duration match found."
+    if jq -e '.instrumental == true' "${selected}" >/dev/null 2>&1; then
+        return 2
     fi
-
-    jq \
-        --arg title "$(normalize "${title}")" \
-        --arg artist "$(normalize "${artist}")" \
-        --arg album "$(normalize "${album}")" \
-        --argjson duration "${duration}" '
-        def norm:
-            ascii_downcase
-            | gsub("&"; "and")
-            | gsub("[^[:alnum:]]+"; " ")
-            | gsub("^ +| +$"; "")
-            | gsub(" +"; " ");
-
-        map(select(
-            ((.trackName // "") | norm) == $title and
-            ((.artistName // "") | norm) == $artist and
-            ((.albumName // "") | norm) == $album
-        ))
-        | sort_by(((.duration // 0) - $duration) | fabs)
-        | .[0] // empty
-    ' "${search_response}" > "${selected}"
-
-    if ! jq -e 'type == "object" and (.id != null)' "${selected}" >/dev/null 2>&1; then
-        return 1
+    if ! jq -e '((.syncedLyrics // "") != "") or ((.plainLyrics // "") != "")' "${selected}" >/dev/null 2>&1; then
+        return 2
     fi
-
-    # If text metadata matches cleanly, duration drift is acceptable.
-    loud "LRCLIB metadata match found; accepting duration mismatch."
     save_lrclib_result "${selected}" "${lrc_file}" "${txt_file}"
 }
 
@@ -591,29 +725,17 @@ process_mp3() {
     local artist
     local album
     local duration
+    local lookup_status=0
+    local had_lrc=0
 
     loud
     loud "Examining: ${song_file}"
+    SONG_WRITES=0
+    valid_lrc "${lrc_file}" && had_lrc=1
 
-    # Existing plain lyrics only suppress `.txt` creation work; the track may
-    # still need a missing `.lrc` unless both artifacts are already present.
-    if [[ -f "${txt_file}" ]]; then
-        if (( FORCE == 1 )); then
-            loud "Plain-text sidecar already exists, but force is enabled: ${txt_file}"
-        else
-            loud "Plain-text sidecar already exists: ${txt_file}"
-        fi
-    fi
-
-    if [[ -f "${lrc_file}" ]] && (( FORCE == 1 )); then
-        loud "Synchronized sidecar already exists, but force is enabled: ${lrc_file}"
-    fi
-
-    if [[ -f "${lrc_file}" ]] && (( FORCE == 0 )); then
-        # Existing synced lyrics suppress LRCLIB and synced-tag extraction, but
-        # the file may still need `.txt` generated from the `.lrc`.
-        loud "Synchronized sidecar already exists: ${lrc_file}"
-    else
+    # A valid sidecar wins in normal mode. Force mode requests fresh LRCLIB
+    # data, but a failed refresh never destroys an existing sidecar.
+    if (( FORCE == 1 || had_lrc == 0 )); then
         metadata=$(read_metadata "${song_file}") || metadata=""
 
         if [[ -n "${metadata}" ]]; then
@@ -624,61 +746,51 @@ process_mp3() {
 
             loud "Metadata: artist='${artist}' title='${title}' album='${album}' duration=${duration}s"
 
-            # Only query LRCLIB when the metadata is specific enough to be
-            # useful and duration is available.
-            if [[ -n "${title}" && -n "${artist}" && -n "${album}" &&
-                  "${duration}" =~ ^[0-9]+$ && "${duration}" -gt 0 ]]; then
-                if query_lrclib \
-                    "${title}" "${artist}" "${album}" "${duration}" \
-                    "${lrc_file}" "${txt_file}"; then
-                    if [[ -f "${lrc_file}" ]]; then
-                        loud "Saved synchronized lyrics: ${lrc_file}"
-                    elif [[ -f "${txt_file}" ]]; then
-                        loud "LRCLIB had only plain lyrics; saved: ${txt_file}"
-                    fi
-                else
-                    loud "No acceptable LRCLIB match."
-                fi
+            if [[ -n "${title}" && -n "${artist}" ]]; then
+                query_lrclib "${title}" "${artist}" "${album}" "${duration}" \
+                    "${lrc_file}" "${txt_file}"
+                lookup_status=$?
+                loud "LRCLIB lookup status: ${lookup_status}"
             else
                 loud "Metadata is incomplete; skipping LRCLIB lookup."
+                lookup_status=2
             fi
         else
             loud "Could not read metadata; skipping LRCLIB lookup."
+            lookup_status=2
         fi
 
-        if [[ -f "${lrc_file}" ]] && (( FORCE == 0 )); then
-            # Do not re-read embedded synced tags when the synchronized sidecar
-            # already exists. That extra ExifTool pass just wastes time.
-            loud "Skipping embedded synchronized lyric extraction because sidecar already exists."
-        else
-            # Embedded synced lyrics are the local fallback when LRCLIB did not
-            # produce a synchronized result.
+        if ! valid_lrc "${lrc_file}"; then
             if extract_embedded_synced "${song_file}" "${lrc_file}"; then
                 loud "Extracted embedded synchronized lyrics: ${lrc_file}"
-            else
-                loud "No embedded synchronized lyrics found."
             fi
         fi
     fi
 
-    if [[ -f "${txt_file}" ]] && (( FORCE == 0 )); then
-        loud "Plain-text sidecar already exists: ${txt_file}"
-    else
-        # Prefer a true unsynced embedded lyric payload if one exists.
+    if ! valid_txt "${txt_file}"; then
         if extract_embedded_plain "${song_file}" "${txt_file}"; then
             loud "Extracted embedded unsynchronized lyrics: ${txt_file}"
-        elif [[ -f "${lrc_file}" ]]; then
-            # If we only have synced lyrics, strip timestamps to produce the
-            # missing plain-text sidecar rather than leaving the track partial.
+        elif valid_lrc "${lrc_file}"; then
             if convert_lrc_to_plaintext "${lrc_file}" "${txt_file}"; then
                 loud "Converted synchronized lyrics to plain text: ${txt_file}"
-            else
-                loud "Synchronized lyrics exist, but plain-text conversion produced nothing."
             fi
-        else
-            loud "No embedded unsynchronized lyrics found."
         fi
     fi
+
+    # A confirmed negative result is complete for the cache interval. A
+    # transport failure stays in the queue unless local lyrics resolved it.
+    if (( lookup_status == 2 || lookup_status == 3 )); then
+        remember_negative "${song_file}" || return 1
+        return 0
+    fi
+    if (( lookup_status == 1 )); then
+        return 1
+    fi
+    if valid_lrc "${lrc_file}" || valid_txt "${txt_file}"; then
+        forget_negative "${song_file}" || return 1
+        return 0
+    fi
+    return 1
 }
 
 ##############################################################################
@@ -709,6 +821,11 @@ while (( $# > 0 )); do
             (( $# > 0 )) || die "--delay requires a number of seconds."
             REQUEST_DELAY="$1"
             ;;
+        --duration-tolerance)
+            shift
+            (( $# > 0 )) || die "--duration-tolerance requires a number of seconds."
+            SEARCH_DURATION_TOLERANCE="$1"
+            ;;
         -h|--help)
             LOUD=1
             usage
@@ -732,6 +849,7 @@ done
 main() {
     local count=0
     local completed_operations=0
+    local attempted_operations=0
     local song_operations=0
     local song_file=""
     local using_queue=0
@@ -741,6 +859,8 @@ main() {
     local live_list_file=""
     local live_total=0
     local live_index=0
+    local queue_entries=0
+    local queue_index=0
 
     require_command exiftool
     require_command curl
@@ -749,6 +869,7 @@ main() {
     require_command sed
     require_command grep
     require_command awk
+    require_command sha256sum
 
     # Fail early on obviously bad runtime configuration before building queue
     # state or touching the library.
@@ -757,10 +878,16 @@ main() {
 
     [[ "${REQUEST_DELAY}" =~ ^[0-9]+([.][0-9]+)?$ ]] ||
         die "--delay must be a non-negative number."
+    [[ "${SEARCH_DURATION_TOLERANCE}" =~ ^[0-9]+$ ]] ||
+        die "--duration-tolerance must be a non-negative whole number."
 
     if (( UPDATE_MODE == 1 && BASE_WAS_SET == 0 )); then
         die "--update requires an explicit --base DIRECTORY."
     fi
+
+    MPD_MUSIC_BASE=$(readlink -f -- "${MPD_MUSIC_BASE}") || die "Could not resolve music base."
+    QUEUE_FILE="${SCRIPT_DIR}/f_fix_lyrics.$(cache_key "${MPD_MUSIC_BASE}").queue"
+    NEGATIVE_CACHE_FILE="${SCRIPT_DIR}/f_fix_lyrics.$(cache_key "${MPD_MUSIC_BASE}").negative-cache"
 
     LYRICTMP=$(mktemp -d) || die "Could not create temporary directory."
 
@@ -800,25 +927,30 @@ main() {
     if (( using_queue == 1 )); then
         queue_total=$(count_operations_in_list "${QUEUE_FILE}")
         queue_remaining_operations="${queue_total}"
+        queue_entries=$(count_queue_entries "${QUEUE_FILE}")
         loud "Queue contains ${queue_total} lyric operation(s) needing work."
 
-        while [[ -f "${QUEUE_FILE}" ]]; do
+        while (( queue_index < queue_entries )) && [[ -f "${QUEUE_FILE}" && -s "${QUEUE_FILE}" ]]; do
             # Read the current head before mutating the queue so interrupts leave
             # the active file in place for the next invocation.
-            song_file=$(head -n 1 "${QUEUE_FILE}")
-            [[ -n "${song_file}" ]] || break
+            IFS= read -r -d '' song_file < "${QUEUE_FILE}" || die "Queue file is incomplete: ${QUEUE_FILE}"
             song_operations=$(count_pending_operations "${song_file}")
             # Do not rescan the whole queue on every iteration just to print
             # progress. That turned progress reporting itself into a constant
             # per-track tax that had nothing to do with LRCLIB pacing.
             loud "Progress [queue]: ${completed_operations}/${queue_total} complete; current file has ${song_operations} operation(s); ${queue_remaining_operations} remaining including current"
 
-            process_mp3 "${song_file}"
-            # Only drop a queue item after its processing path returned.
-            remove_first_queue_entry "${QUEUE_FILE}" "${song_file}"
-            ((completed_operations += song_operations))
+            if process_mp3 "${song_file}"; then
+                remove_first_queue_entry "${QUEUE_FILE}" "${song_file}" || die "Could not update queue: ${QUEUE_FILE}"
+            else
+                defer_first_queue_entry "${QUEUE_FILE}" "${song_file}" || die "Could not defer queue item: ${QUEUE_FILE}"
+                loud "Deferred unfinished file for a future run: ${song_file}"
+            fi
+            ((attempted_operations += song_operations))
+            ((completed_operations += SONG_WRITES))
             ((queue_remaining_operations -= song_operations))
             ((count++))
+            ((queue_index++))
         done
 
         if [[ ! -f "${QUEUE_FILE}" ]]; then
@@ -842,19 +974,20 @@ main() {
     fi
 
     if [[ -n "${live_list_file}" && -f "${live_list_file}" ]]; then
-        while IFS= read -r song_file; do
+        while IFS= read -r -d '' song_file; do
             [[ -n "${song_file}" ]] || continue
             song_operations=$(count_pending_operations "${song_file}")
             live_index=$((live_index + 1))
             loud "Progress [live scan]: ${completed_operations}/${live_total} complete; file ${live_index}; current file has ${song_operations} operation(s)"
-            process_mp3 "${song_file}"
-            ((completed_operations += song_operations))
+            process_mp3 "${song_file}" || loud "Unfinished file: ${song_file}"
+            ((attempted_operations += song_operations))
+            ((completed_operations += SONG_WRITES))
             ((count++))
         done < "${live_list_file}"
     fi
 
     loud
-    loud "Finished. Examined ${count} MP3 file(s) across ${completed_operations} lyric operation(s)."
+    loud "Finished. Examined ${count} MP3 file(s); attempted ${attempted_operations} and wrote ${completed_operations} lyric sidecar(s)."
 }
 
 main
